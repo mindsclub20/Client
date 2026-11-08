@@ -1,0 +1,9 @@
+{
+  "name": "maxweb",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "better-auth": "^1.3.0",
+    "pg": "^8.13.0"
+  }
+}
