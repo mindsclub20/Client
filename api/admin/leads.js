@@ -1,5 +1,0 @@
-import { pool } from '../../lib/db.js';
-import { requireAdmin, json, audit } from '../../lib/access.js';
-const statuses=['new','contacted','qualified','converted','closed'];
-export async function GET(request){try{const c=await requireAdmin(request);if(c.response)return c.response;const {rows}=await pool.query('SELECT id,name,email,phone,service_type,message,source,status,created_at FROM public.maxweb_public_leads ORDER BY created_at DESC LIMIT 300');return json({leads:rows});}catch(e){console.error(e?.message);return json({error:'server_error'},500);}}
-export async function PATCH(request){try{const c=await requireAdmin(request);if(c.response)return c.response;const b=await request.json().catch(()=>null);if(!b?.id||!statuses.includes(b?.status))return json({error:'invalid_input'},400);const {rows}=await pool.query('UPDATE public.maxweb_public_leads SET status=$2 WHERE id=$1 RETURNING id,status',[b.id,b.status]);if(!rows[0])return json({error:'lead_not_found'},404);await audit(c.user.id,'public_lead.status_changed','public_lead',b.id,{status:b.status});return json({lead:rows[0]});}catch(e){console.error(e?.message);return json({error:'server_error'},500);}}
