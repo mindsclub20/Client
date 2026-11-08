@@ -1,18 +1,19 @@
-import { auth } from "../lib/auth.js";
+import { requireUser, json } from '../lib/access.js';
 
-const noStore = { "cache-control": "no-store" };
-
-// Server-side session check. The portal trusts this response, not browser state.
 export async function GET(request) {
   try {
-    const s = await auth.api.getSession({ headers: request.headers });
-    if (!s) return Response.json({ error: "unauthenticated" }, { status: 401, headers: noStore });
-    return Response.json(
-      { user: { name: s.user.name, email: s.user.email }, expiresAt: s.session.expiresAt },
-      { headers: noStore }
-    );
-  } catch (e) {
-    console.error("session check failed", e && e.message);
-    return Response.json({ error: "server_error" }, { status: 500, headers: noStore });
+    const current = await requireUser(request);
+    if (current.response) return current.response;
+    return json({
+      user: { id: current.user.id, name: current.user.name, email: current.user.email },
+      profile: {
+        role: current.profile.role,
+        fullName: current.profile.full_name,
+        phone: current.profile.phone,
+      },
+    });
+  } catch (error) {
+    console.error('session check failed', error?.message);
+    return json({ error: 'server_error' }, 500);
   }
 }
