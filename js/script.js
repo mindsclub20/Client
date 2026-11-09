@@ -311,10 +311,11 @@
       return res.json().catch(function () { return {}; }).then(function (data) {
         if (!res.ok) throw new Error(data.message || data.error || "assistant_unavailable");
         aiConversationId = data.conversationId || aiConversationId;
+        if (data.accountRequired) return data.reply + " To receive a formal quotation, create a MAXWEB account and continue this conversation while signed in.";
         return data.reply;
       });
     }).catch(function () {
-      return reply(q) + " (Basic offline response: the MAXWEB AI assistant is not connected right now.)";
+      return "The MAXWEB AI assistant is temporarily unavailable. You can contact the team by WhatsApp, phone, or Instagram using the contact options on this page.";
     }).then(function (answer) {
       ty.remove();
       add(answer || "The MAXWEB team will review your message.", "b");
