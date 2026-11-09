@@ -13,6 +13,7 @@ on:
       - 'accept-invite.html'
       - 'setup-admin.html'
       - 'db-migration-001.sql'
+      - 'db-migration-002.sql'
       - 'package.json'
       - 'tests/**'
 permissions:
