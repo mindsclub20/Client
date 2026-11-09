@@ -21,10 +21,15 @@ test('builds Gmail SMTP settings and normalizes Google App Password spaces', () 
   });
 });
 
-test('uses the sender account as the default From address', () => {
-  const { from, ...config } = getSmtpConfig({ ...validEnv, EMAIL_FROM: '' });
-  assert.equal(from, 'sender@gmail.com');
-  assert.equal(config.host, 'smtp.gmail.com');
+test('uses EMAIL_FROM as the SMTP username when SMTP_USER is not configured', () => {
+  const config = getSmtpConfig({ ...validEnv, SMTP_USER: undefined });
+  assert.equal(config.auth.user, 'sender@gmail.com');
+  assert.equal(config.from, 'sender@gmail.com');
+});
+
+test('defaults secure SMTP to true on port 465', () => {
+  const config = getSmtpConfig({ ...validEnv, SMTP_SECURE: undefined });
+  assert.equal(config.secure, true);
 });
 
 test('rejects missing SMTP credentials instead of silently falling back to Resend', () => {
