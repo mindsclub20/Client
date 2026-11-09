@@ -4,6 +4,7 @@ on:
     branches:
       - feature/maxweb-non-ai-foundation
       - fix/maxweb-completion-qa
+      - fix/maxweb-owner-readiness
     paths:
       - 'api/**'
       - 'lib/**'
