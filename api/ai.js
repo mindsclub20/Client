@@ -98,7 +98,7 @@ export async function POST(request) {
       [conversation.id, userId, result.customerName, result.email, result.phone, result.serviceType,
         JSON.stringify(nextTranscript), JSON.stringify(summary), result.proposedPrice, result.priceStatus, nextStatus]
     );
-    return json({ conversationId: conversation.id, reply: result.reply, submittedForReview: result.readyForAdminReview });
+    return json({ conversationId: conversation.id, reply: result.reply, submittedForReview: result.readyForAdminReview, accountRequired: !userId && result.readyForAdminReview });
   } catch (error) {
     if (error?.message === 'AI_NOT_CONFIGURED') {
       return json({ error: 'ai_not_configured', message: 'The assistant is temporarily unavailable.' }, 503);
