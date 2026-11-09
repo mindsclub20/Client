@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [html, css, favicon] = await Promise.all([
+const [html, css, favicon, config] = await Promise.all([
   readFile(new URL('../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../css/style.css', import.meta.url), 'utf8'),
   readFile(new URL('../favicon.svg', import.meta.url), 'utf8'),
+  readFile(new URL('../vercel.json', import.meta.url), 'utf8').then(JSON.parse),
 ]);
 
 test('homepage declares a same-origin SVG favicon', () => {
