@@ -55,3 +55,10 @@ VALUES
  ('MAXWEB website and game','A live demo of a website with a built-in game.','https://maxweb-website-and-game--charan4950ch.replit.app/',20),
  ('Second live demo','Another website built by MAXWEB.','https://12103977-76b7-4e76-b153-b637d396fe70-00-quoy5txei5k3.sisko.replit.dev/',30)
 ON CONFLICT (url) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS public.maxweb_ai_rate_limits (
+  key_hash text PRIMARY KEY,
+  window_started_at timestamptz NOT NULL DEFAULT now(),
+  request_count integer NOT NULL DEFAULT 0 CHECK (request_count >= 0),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
