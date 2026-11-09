@@ -12,6 +12,7 @@ on:
       - 'css/**'
       - 'index.html'
       - 'favicon.svg'
+      - 'vercel.json'
       - 'admin.html'
       - 'portal.html'
       - 'accept-invite.html'
