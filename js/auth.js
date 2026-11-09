@@ -85,7 +85,7 @@
     e.preventDefault();
     if (busy) return;
     var email = $("ae").value.trim();
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return setErr("Enter your account email first.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setErr("Enter your account email first.");
     setBusy(true);
     api("/request-password-reset", { email: email, redirectTo: window.location.origin + "/reset-password.html" })
       .then(function (res) {
