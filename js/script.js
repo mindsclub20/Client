@@ -325,6 +325,7 @@
   fab.addEventListener("click", openChat);
   $("callP").addEventListener("click", openChat);
   $("cx").addEventListener("click", closeChat);
+  if (new URLSearchParams(window.location.search).get("chat") === "1") openChat();
   $("cl").addEventListener("click", function () {
     if (calling) { endCall(); add("Call ended.", "s"); } else { startCall(); }
   });
