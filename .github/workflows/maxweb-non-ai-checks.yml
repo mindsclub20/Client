@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/maxweb-non-ai-foundation
+      - fix/maxweb-completion-qa
     paths:
       - 'api/**'
       - 'lib/**'
