@@ -12,6 +12,7 @@ const [html, css, favicon, config] = await Promise.all([
 test('homepage declares a same-origin SVG favicon', () => {
   assert.match(html, /<link[^>]+rel=["']icon["'][^>]+href=["']\/favicon\.svg["']/i);
   assert.match(favicon, /<svg[\s>]/i);
+  assert.ok(config.rewrites.some((rule) => rule.source === '/favicon.ico' && rule.destination === '/favicon.svg'));
 });
 
 test('homepage clips decorative overflow at the viewport boundary', () => {
