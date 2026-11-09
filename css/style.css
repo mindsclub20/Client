@@ -1,3 +1,4 @@
+/* MAXWEB responsive viewport guard */
 :root{--bg:#0a2147;--deep:#0e2d5c;--slate:#143a72;--line:#ffffff1f;--tx:#eaf1fb;--mut:#9fb3cf;--teal:#2fb5ae;--cu:#d29a68;--hd:'Instrument Serif',Georgia,serif;--bd:'Manrope',system-ui,sans-serif;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:dark}
 html{overflow-x:clip;scroll-behavior:smooth;scroll-padding-top:calc(76px + env(safe-area-inset-top,0px))}
 *{box-sizing:border-box;margin:0}
