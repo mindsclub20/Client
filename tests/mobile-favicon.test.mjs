@@ -18,3 +18,9 @@ test('homepage declares a same-origin SVG favicon', () => {
 test('homepage clips decorative overflow at the viewport boundary', () => {
   assert.match(css, /html\s*\{[^}]*overflow-x\s*:\s*clip\s*;/s);
 });
+
+
+test('mobile hero clips the animated 3D scene and scales its ring to the viewport', () => {
+  assert.match(css, /@media\s*\(max-width:\s*560px\)[\s\S]*?\.stage\s*\{[^}]*overflow:\s*hidden/s);
+  assert.match(css, /\.ring\s*\{[^}]*width:\s*min\(400px,\s*calc\(100vw\s*-\s*100px\)\)/s);
+});

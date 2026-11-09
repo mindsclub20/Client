@@ -139,3 +139,13 @@ footer{position:relative}footer::before{content:"";position:absolute;top:-1px;le
 .alt.ld,.sso3 button.ld{pointer-events:none;opacity:.6}
 .ch #cl.on{color:#ff9d8f}
 .m.s{background:none;color:var(--mut);font-size:13px;text-align:center;max-width:100%}
+
+/* Keep the animated hero illustration inside narrow mobile viewports. */
+@media(max-width:560px){
+  .stage{width:100%;min-width:0;overflow:hidden;contain:paint}
+  .scene{inset:0;max-width:100%}
+  .ring{width:min(400px,calc(100vw - 100px));height:min(400px,calc(100vw - 100px));margin-top:calc(-1 * min(200px,(100vw - 100px)/2));margin-left:calc(-1 * min(200px,(100vw - 100px)/2))}
+  .chip.c1{left:4%;max-width:42%;white-space:normal}
+  .chip.c2{right:4%;max-width:42%;white-space:normal}
+  .chip.c3{left:4%;max-width:42%;white-space:normal}
+}
