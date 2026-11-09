@@ -39,6 +39,7 @@
     $("sw").firstChild.textContent = signup ? "Already have an account? " : "New here? ";
     $("ca").textContent = signup ? "Log in" : "Create an account";
     $("ap").setAttribute("autocomplete", signup ? "new-password" : "current-password");
+    $("forgotRow").hidden = signup;
   }
   function route() {
     var h = window.location.hash, target = dashboard();
@@ -79,6 +80,20 @@
         $("ap").value = ""; window.location.assign(dashboard());
       });
     }).catch(function () { setBusy(false); setErr("Could not reach the server. Check your connection and try again."); });
+  });
+  $("forgot").addEventListener("click", function (e) {
+    e.preventDefault();
+    if (busy) return;
+    var email = $("ae").value.trim();
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return setErr("Enter your account email first.");
+    setBusy(true);
+    api("/request-password-reset", { email: email, redirectTo: window.location.origin + "/reset-password.html" })
+      .then(function (res) {
+        setBusy(false);
+        if (!res.ok) { setErr(friendly(res)); return; }
+        setErr("If an account exists for this email, a password-reset link has been sent. Check your inbox.");
+      })
+      .catch(function () { setBusy(false); setErr("Could not request a reset. Check your connection and try again."); });
   });
   $("ca").addEventListener("click", function (e) { e.preventDefault(); mode = mode === "login" ? "signup" : "login"; setErr(""); paint(); });
   $("pt").addEventListener("click", function () { var p = $("ap"), show = p.type === "password"; p.type = show ? "text" : "password"; this.textContent = show ? "Hide" : "Show"; });
