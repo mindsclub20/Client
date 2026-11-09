@@ -294,6 +294,7 @@
     b.classList.remove("on"); b.textContent = "📞"; b.title = "Call Priya";
   }
   if (window.speechSynthesis) speechSynthesis.getVoices();
+  var aiConversationId = null;
   function ask(q) {
     add(q, "u");
     var ty = document.createElement("div");
@@ -301,12 +302,24 @@
     ty.innerHTML = '<div class="ty"><i></i><i></i><i></i></div>';
     msgs.appendChild(ty);
     msgs.scrollTop = msgs.scrollHeight;
-    setTimeout(function () {
-      var a = reply(q);
+    fetch("/api/ai", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ message: q, conversationId: aiConversationId, source: window.location.pathname === "/portal.html" ? "client_portal" : "website" })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (data) {
+        if (!res.ok) throw new Error(data.message || data.error || "assistant_unavailable");
+        aiConversationId = data.conversationId || aiConversationId;
+        return data.reply;
+      });
+    }).catch(function () {
+      return reply(q) + " (Basic offline response: the MAXWEB AI assistant is not connected right now.)";
+    }).then(function (answer) {
       ty.remove();
-      add(a, "b");
-      speak(a);
-    }, 700);
+      add(answer || "The MAXWEB team will review your message.", "b");
+      speak(answer || "");
+    });
   }
   function openChat() {
     chat.hidden = false;
