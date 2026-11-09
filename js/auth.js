@@ -14,6 +14,7 @@
   function friendly(res) {
     var code = String((res.data && res.data.code) || "").toUpperCase();
     if (res.status === 429) return "Too many attempts. Please wait a minute and try again.";
+    if (code.indexOf("EMAIL_NOT_VERIFIED") > -1) return "Verify your email before signing in. We have sent a fresh verification link.";
     if (code.indexOf("USER_ALREADY_EXISTS") === 0) return "An account with this email already exists. Try logging in.";
     if (code.indexOf("INVALID_EMAIL_OR_PASSWORD") === 0) return "That email or password is not right.";
     if (code.indexOf("PASSWORD_TOO_SHORT") === 0) return "Use a password of at least 8 characters.";
@@ -66,9 +67,15 @@
     var req = signup ? api("/sign-up/email", { name: name, email: email, password: pw }) : api("/sign-in/email", { email: email, password: pw });
     req.then(function (res) {
       if (!res.ok) { setBusy(false); setErr(friendly(res)); return; }
+      if (signup) {
+        setBusy(false);
+        $("ap").value = "";
+        setErr("Account created. Check your inbox and verify your email before logging in.");
+        return;
+      }
       return loadSession().then(function () {
         setBusy(false);
-        if (!user) { setErr("The server accepted the request but the session could not be confirmed. Check cookies and try again."); return; }
+        if (!user) { setErr("Your session could not be confirmed. Check your email verification and try again."); return; }
         $("ap").value = ""; window.location.assign(dashboard());
       });
     }).catch(function () { setBusy(false); setErr("Could not reach the server. Check your connection and try again."); });
