@@ -53,3 +53,11 @@ test('validates customer contact details extracted from the conversation', () =>
   assert.equal(result.phone, '9876543210');
   assert.deepEqual(result.summary.features, ['Contact form', 'Gallery']);
 });
+
+test('enforces the configured maximum discount even when minimum price is lower', () => {
+  const strictRules = [{ service_type: 'Website development', base_price: '6000', minimum_price: '5000', max_discount_percent: '5' }];
+  const rejected = normalizeSalesResponse({ reply: 'Review', service_type: 'Website development', proposed_price: 5500 }, strictRules);
+  const accepted = normalizeSalesResponse({ reply: 'Review', service_type: 'Website development', proposed_price: 5700 }, strictRules);
+  assert.equal(rejected.proposedPrice, null);
+  assert.equal(accepted.proposedPrice, 5700);
+});
