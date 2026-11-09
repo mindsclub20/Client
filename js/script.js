@@ -205,14 +205,26 @@
     window.open(waLink(msg), "_blank", "noopener");
   });
 
-  /* Admin-managed live demos. Keep the existing card design and retain static cards if the API is unavailable. */
-  var demoGrid = document.querySelector("#work .grid");
+  /* Admin-managed live demos; never retain stale static cards. */
+  var demoGrid = document.querySelector("#demoGrid");
   if (demoGrid) {
+    demoGrid.textContent = "Loading demos...";
+    function showDemoMessage(message) {
+      demoGrid.textContent = message;
+      demoGrid.classList.add("demo-empty");
+    }
     fetch("/api/demos", { credentials: "same-origin", cache: "no-store" })
-      .then(function (r) { if (!r.ok) throw new Error("demos unavailable"); return r.json(); })
+      .then(function (r) {
+        if (!r.ok) throw new Error("demos unavailable");
+        return r.json();
+      })
       .then(function (data) {
-        if (!Array.isArray(data.demos) || !data.demos.length) return;
         demoGrid.textContent = "";
+        demoGrid.classList.remove("demo-empty");
+        if (!Array.isArray(data.demos) || !data.demos.length) {
+          showDemoMessage("No live demos are available right now. Contact MAXWEB for examples.");
+          return;
+        }
         data.demos.forEach(function (demo, index) {
           var card = document.createElement("a");
           card.className = "card tilt";
@@ -231,7 +243,9 @@
           demoGrid.appendChild(card);
         });
       })
-      .catch(function () {});
+      .catch(function () {
+        showDemoMessage("No live demos are available right now. Contact MAXWEB for examples.");
+      });
   }
 
   /* Priya chat */
