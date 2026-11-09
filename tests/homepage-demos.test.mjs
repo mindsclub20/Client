@@ -23,3 +23,5 @@ test('demo loading never leaves stale hard-coded cards visible when the API fail
 test('database migration does not publish unverified demo URLs by default', () => {
   assert.doesNotMatch(migration, /INSERT INTO public\\.maxweb_demos/i);
 });
+
+// Keep this regression file in sync with the migration paths watched by CI.
