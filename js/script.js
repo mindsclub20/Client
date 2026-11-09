@@ -222,7 +222,7 @@
         demoGrid.textContent = "";
         demoGrid.classList.remove("demo-empty");
         if (!Array.isArray(data.demos) || !data.demos.length) {
-          showDemoMessage("No live demos are available right now. Contact MAXWEB for examples.");
+          showDemoMessage("No live demos available right now. Contact MAXWEB for examples.");
           return;
         }
         data.demos.forEach(function (demo, index) {
@@ -244,7 +244,7 @@
         });
       })
       .catch(function () {
-        showDemoMessage("No live demos are available right now. Contact MAXWEB for examples.");
+        showDemoMessage("No live demos available right now. Contact MAXWEB for examples.");
       });
   }
 
