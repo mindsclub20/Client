@@ -205,6 +205,35 @@
     window.open(waLink(msg), "_blank", "noopener");
   });
 
+  /* Admin-managed live demos. Keep the existing card design and retain static cards if the API is unavailable. */
+  var demoGrid = document.querySelector("#work .grid");
+  if (demoGrid) {
+    fetch("/api/demos", { credentials: "same-origin", cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("demos unavailable"); return r.json(); })
+      .then(function (data) {
+        if (!Array.isArray(data.demos) || !data.demos.length) return;
+        demoGrid.textContent = "";
+        data.demos.forEach(function (demo, index) {
+          var card = document.createElement("a");
+          card.className = "card tilt";
+          if (index === 0) card.style.maxWidth = "520px";
+          card.href = demo.url;
+          card.target = "_blank";
+          card.rel = "noopener";
+          var title = document.createElement("h3");
+          title.textContent = demo.title;
+          var description = document.createElement("p");
+          description.textContent = demo.description || "";
+          var action = document.createElement("span");
+          action.className = "go";
+          action.textContent = "Open the demo";
+          card.append(title, description, action);
+          demoGrid.appendChild(card);
+        });
+      })
+      .catch(function () {});
+  }
+
   /* Priya chat */
   var chat = $("chat"), fab = $("fab"), msgs = $("msgs"), voice = false;
   var started = false;
