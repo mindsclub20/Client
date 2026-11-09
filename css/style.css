@@ -149,3 +149,13 @@ footer{position:relative}footer::before{content:"";position:absolute;top:-1px;le
   .chip.c2{right:4%;max-width:42%;white-space:normal}
   .chip.c3{left:4%;max-width:42%;white-space:normal}
 }
+
+/* Keep the floating labels and 3D scene within the hero on small screens. */
+@media(max-width:560px){
+  .stage{overflow:hidden}
+  .scene{transform:none;overflow:hidden}
+  .scene .chip{transform:none;max-width:42%;white-space:normal;overflow-wrap:anywhere}
+  .scene .c1{left:8%;right:auto;top:8%}
+  .scene .c2{left:auto;right:8%;top:42%}
+  .scene .c3{left:8%;right:auto;bottom:8%}
+}

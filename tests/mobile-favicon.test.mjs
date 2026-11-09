@@ -24,3 +24,10 @@ test('mobile hero clips the animated 3D scene and scales its ring to the viewpor
   assert.match(css, /@media\s*\(max-width:\s*560px\)[\s\S]*?\.stage\s*\{[^}]*overflow:\s*hidden/s);
   assert.match(css, /\.ring\s*\{[^}]*width:\s*min\(400px,\s*calc\(100vw\s*-\s*100px\)\)/s);
 });
+
+test('mobile hero disables perspective translation on floating labels and scene', () => {
+  assert.match(css, /\.scene\s*\{transform:\s*none;overflow:\s*hidden\}/);
+  assert.match(css, /\.scene\s+\.chip\s*\{transform:\s*none/);
+  assert.match(css, /\.scene\s+\.c1\s*\{left:\s*8%/);
+  assert.match(css, /\.scene\s+\.c3\s*\{left:\s*8%/);
+});
