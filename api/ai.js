@@ -3,7 +3,7 @@ import { pool } from '../lib/db.js';
 import { getSupabaseUser } from '../lib/supabase-auth.js';
 import { sameOrigin, json } from '../lib/access.js';
 import { text } from '../lib/validation.js';
-import { normalizeSalesResponse, requestSalesAssistant } from '../lib/ai.js';
+import { isSalesAssistantConfigured, normalizeSalesResponse, requestSalesAssistant } from '../lib/ai.js';
 
 const SOURCES = new Set(['website', 'client_portal', 'instagram', 'whatsapp', 'phone']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 async function rateLimited(request) {
   const forwarded = request.headers.get('x-forwarded-for') || '';
   const address = forwarded.split(',')[0].trim() || 'unknown';
-  const secret = process.env.MAXWEB_AI_API_KEY || 'maxweb-ai-rate-limit';
+  const secret = process.env.MAXWEB_AI_API_KEY || process.env.XAI_API_KEY || 'maxweb-ai-rate-limit';
   const keyHash = createHash('sha256').update(secret + ':' + address).digest('hex');
   const { rows } = await pool.query(
     `INSERT INTO public.maxweb_ai_rate_limits(key_hash, window_started_at, request_count)
@@ -34,7 +34,7 @@ async function rateLimited(request) {
 
 export async function POST(request) {
   if (!sameOrigin(request)) return json({ error: 'invalid_origin' }, 403);
-  if (!process.env.MAXWEB_AI_API_KEY || !process.env.MAXWEB_AI_MODEL) {
+  if (!isSalesAssistantConfigured()) {
     return json({ error: 'ai_not_configured', message: 'The assistant is temporarily unavailable. Use the call, Instagram, or WhatsApp contact options.' }, 503);
   }
   try {
