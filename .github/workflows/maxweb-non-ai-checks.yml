@@ -1,5 +1,6 @@
 name: MAXWEB non-AI checks
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/maxweb-non-ai-foundation
@@ -7,6 +8,7 @@ on:
       - fix/maxweb-owner-readiness
       - feature/supabase-auth-neon-data
     paths:
+      - '.github/workflows/maxweb-non-ai-checks.yml'
       - 'api/**'
       - 'lib/**'
       - 'js/**'
