@@ -73,6 +73,7 @@ The migration script requires local environment variables:
 - SUPABASE_URL
 - SUPABASE_PUBLISHABLE_KEY — Supabase publishable key, also required locally
 - SUPABASE_SECRET_KEY — Supabase secret key, local only
+- MAXWEB_SITE_URL — optional base URL used for migration invitation and recovery redirects
 
 Do not run it against a preview database unless that is the intended target. Do not run it twice after it reports completion.
 
