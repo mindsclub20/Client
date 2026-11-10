@@ -1,11 +1,15 @@
 name: MAXWEB non-AI checks
 on:
+  pull_request:
+  workflow_dispatch:
   push:
     branches:
       - feature/maxweb-non-ai-foundation
       - fix/maxweb-completion-qa
       - fix/maxweb-owner-readiness
+      - feature/supabase-auth-neon-data
     paths:
+      - '.github/workflows/maxweb-non-ai-checks.yml'
       - 'api/**'
       - 'lib/**'
       - 'js/**'
@@ -13,13 +17,17 @@ on:
       - 'index.html'
       - 'favicon.svg'
       - 'vercel.json'
+      - '*.html'
       - 'admin.html'
       - 'portal.html'
       - 'accept-invite.html'
       - 'setup-admin.html'
       - 'db-migration-001.sql'
       - 'db-migration-002.sql'
+      - 'db-migration-003-first-two-admins.sql'
+      - 'db-migration-004-supabase-auth.sql'
       - 'package.json'
+      - 'scripts/**'
       - 'tests/**'
 permissions:
   contents: read
@@ -33,6 +41,8 @@ jobs:
           node-version: '22'
       - run: npm install --ignore-scripts
       - name: Syntax-check server and browser JavaScript
-        run: find api lib js -name '*.js' -print0 | xargs -0 -n1 node --check
+        run: find api lib js scripts -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -n1 node --check
+      - name: Check high-severity dependency advisories
+        run: npm audit --audit-level=high
       - name: Run regression tests
         run: npm test

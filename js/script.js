@@ -345,11 +345,19 @@
     ty.innerHTML = '<div class="ty"><i></i><i></i><i></i></div>';
     msgs.appendChild(ty);
     msgs.scrollTop = msgs.scrollHeight;
-    fetch("/api/ai", {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ message: q, conversationId: aiConversationId, source: window.location.pathname === "/portal.html" ? "client_portal" : "website" })
+    import("/js/supabase-client.js").then(function (module) {
+      return module.supabase.auth.getSession().then(function (result) {
+        return result.data && result.data.session ? result.data.session.access_token : null;
+      });
+    }).catch(function () { return null; }).then(function (accessToken) {
+      var headers = { "content-type": "application/json" };
+      if (accessToken) headers.Authorization = "Bearer " + accessToken;
+      return fetch("/api/ai", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: headers,
+        body: JSON.stringify({ message: q, conversationId: aiConversationId, source: window.location.pathname === "/portal.html" ? "client_portal" : "website" })
+      });
     }).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (data) {
         if (!res.ok) throw new Error(data.message || data.error || "assistant_unavailable");

@@ -61,3 +61,48 @@ test('enforces the configured maximum discount even when minimum price is lower'
   assert.equal(rejected.proposedPrice, null);
   assert.equal(accepted.proposedPrice, 5700);
 });
+
+
+test('reports the assistant configured when either provider has complete credentials', async () => {
+  const { isSalesAssistantConfigured } = await import('../lib/ai.js');
+  const saved = Object.fromEntries(['MAXWEB_AI_API_KEY','MAXWEB_AI_MODEL','XAI_API_KEY','XAI_MODEL'].map(k=>[k,process.env[k]]));
+  try {
+    delete process.env.MAXWEB_AI_API_KEY; delete process.env.MAXWEB_AI_MODEL;
+    process.env.XAI_API_KEY = 'xai-test-key'; process.env.XAI_MODEL = 'grok-4.7';
+    assert.equal(isSalesAssistantConfigured(), true);
+    delete process.env.XAI_API_KEY; delete process.env.XAI_MODEL;
+    assert.equal(isSalesAssistantConfigured(), false);
+  } finally {
+    for (const [k,v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k]=v; }
+  }
+});
+
+test('falls back to Grok when the primary Gemini-compatible endpoint fails', async () => {
+  const { requestSalesAssistant } = await import('../lib/ai.js');
+  const saved = Object.fromEntries(['MAXWEB_AI_API_KEY','MAXWEB_AI_MODEL','MAXWEB_AI_BASE_URL','XAI_API_KEY','XAI_MODEL','XAI_BASE_URL'].map(k=>[k,process.env[k]]));
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  try {
+    process.env.MAXWEB_AI_API_KEY = 'gemini-test-key';
+    process.env.MAXWEB_AI_MODEL = 'gemini-3.8-flash';
+    process.env.MAXWEB_AI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai';
+    process.env.XAI_API_KEY = 'xai-test-key';
+    process.env.XAI_MODEL = 'grok-4.7';
+    process.env.XAI_BASE_URL = 'https://api.x.ai/v1';
+    globalThis.fetch = async (url, options) => {
+      calls.push({ url: String(url), authorization: options.headers.authorization });
+      if (calls.length === 1) return new Response('unavailable', { status: 503 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ reply: 'Grok fallback works.' }) } }] }), { status: 200, headers: { 'content-type': 'application/json' } });
+    };
+    const result = await requestSalesAssistant([{ role: 'user', content: 'Hello' }], rules);
+    assert.equal(result.reply, 'Grok fallback works.');
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].url, 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+    assert.equal(calls[1].url, 'https://api.x.ai/v1/chat/completions');
+    assert.equal(calls[0].authorization, 'Bearer gemini-test-key');
+    assert.equal(calls[1].authorization, 'Bearer xai-test-key');
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const [k,v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k]=v; }
+  }
+});

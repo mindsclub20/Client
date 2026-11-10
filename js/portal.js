@@ -1,3 +1,4 @@
+import './dashboard-common.js';
 (function(){
 const M=window.MW,$=id=>document.getElementById(id),v=$('view');
 const titles={projects:'My projects',requests:'Start a conversation',quotations:'Quotations',invoices:'Invoices',support:'Support',profile:'My profile'};
