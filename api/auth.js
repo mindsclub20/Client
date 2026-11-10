@@ -1,7 +1,10 @@
-import { auth } from "../lib/auth.js";
-import { routeAuthRequest } from "../lib/auth-request.js";
-
-const handler = (request) => auth.handler(routeAuthRequest(request));
-
-export const GET = handler;
-export const POST = handler;
+export async function GET() {
+  return Response.json({ error: 'auth_provider_moved', message: 'MAXWEB authentication is managed by Supabase Auth.' }, {
+    status: 410, headers: { 'cache-control': 'no-store' },
+  });
+}
+export async function POST() {
+  return Response.json({ error: 'auth_provider_moved', message: 'Use the Supabase Auth client for account operations.' }, {
+    status: 410, headers: { 'cache-control': 'no-store' },
+  });
+}
