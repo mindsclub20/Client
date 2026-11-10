@@ -3,6 +3,7 @@ import { pool } from '../lib/db.js';
 import { requireAdmin, requireUser, json, audit } from '../lib/access.js';
 import { email, text, money } from '../lib/validation.js';
 import { isProjectStatus } from '../lib/permissions.js';
+import { isInitialSuperAdminEmail, hashInvitationToken, canAcceptAdminInvitation } from '../lib/admin-provisioning.js';
 const statuses={requests:['submitted','reviewing','quoted','accepted','declined','converted'],support:['open','in_progress','waiting_for_client','resolved','closed'],leads:['new','contacted','qualified','converted','closed']};
 const pathOf=r=>(new URL(r.url).searchParams.get('path')||'').replace(/^\/+|\/+$/g,'');
 async function gate(r,path){return requireAdmin(r);}
@@ -51,7 +52,8 @@ async function acceptInvitation(r) {
   if (typeof body?.token !== 'string' || body.token.length < 32 || body.token.length > 256) {
     return json({ error: 'invalid_invitation_token' }, 400);
   }
-  const tokenHash = createHash('sha256').update(body.token).digest('hex');
+  const tokenHash = hashInvitationToken(body.token);
+  if (!tokenHash) return json({ error: 'invalid_invitation_token' }, 400);
   const db = await pool.connect();
   try {
     await db.query('BEGIN');
@@ -60,7 +62,6 @@ async function acceptInvitation(r) {
       [tokenHash]
     );
     const invitation = found.rows[0];
-    const { canAcceptAdminInvitation } = await import('../lib/admin-provisioning.js');
     if (!canAcceptAdminInvitation(invitation, current.user)) {
       await db.query('ROLLBACK');
       return json({ error: 'invitation_invalid_or_expired' }, 403);
@@ -94,7 +95,6 @@ async function acceptInvitation(r) {
 async function bootstrapInitialAdmin(r) {
   const current = await requireUser(r);
   if (current.response) return current.response;
-  const { isInitialSuperAdminEmail } = await import('../lib/admin-provisioning.js');
   if (!current.user.emailVerified || !isInitialSuperAdminEmail(current.user.email) ||
       current.profile?.role !== 'super_admin') {
     return json({ error: 'initial_admin_not_eligible' }, 403);
