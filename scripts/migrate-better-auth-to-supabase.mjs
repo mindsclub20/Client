@@ -4,7 +4,7 @@
  * Dry run: node scripts/migrate-better-auth-to-supabase.mjs
  * Apply: CONFIRM_MAXWEB_AUTH_MIGRATION=YES node scripts/migrate-better-auth-to-supabase.mjs --apply
  *
- * Required: DATABASE_URL, SUPABASE_URL, SUPABASE_SECRET_KEY.
+ * Required: DATABASE_URL, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY.
  * Password hashes are not portable between providers. Migrated users receive
  * random passwords and must use Supabase email verification/password recovery.
  */
@@ -14,8 +14,8 @@ import { createClient } from '@supabase/supabase-js';
 
 const { Pool } = pg;
 const apply = process.argv.includes('--apply');
-if (!process.env.DATABASE_URL || !process.env.SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY) {
-  throw new Error('Set DATABASE_URL, SUPABASE_URL, and SUPABASE_SECRET_KEY.');
+if (!process.env.DATABASE_URL || !process.env.SUPABASE_URL || !process.env.SUPABASE_PUBLISHABLE_KEY || !process.env.SUPABASE_SECRET_KEY) {
+  throw new Error('Set DATABASE_URL, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, and SUPABASE_SECRET_KEY.');
 }
 if (apply && process.env.CONFIRM_MAXWEB_AUTH_MIGRATION !== 'YES') {
   throw new Error('Set CONFIRM_MAXWEB_AUTH_MIGRATION=YES to approve the guarded account-table migration.');
@@ -24,6 +24,10 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1, ssl:
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
   auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
 });
+const publicAuth = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+});
+const resetUrl = new URL('/reset-password.html', process.env.MAXWEB_SITE_URL || 'https://maxweb-one.vercel.app').toString();
 const ident = (value) => '"' + String(value).replaceAll('"', '""') + '"';
 const valuesSql = (rows) => rows.map((_, i) => `($${i * 2 + 1}::text,$${i * 2 + 2}::text)`).join(',');
 
@@ -58,14 +62,25 @@ async function main() {
       if (!email) throw new Error('A legacy account has no email address.');
       let user = byEmail.get(email);
       if (!user && apply) {
-        const { data, error } = await supabase.auth.admin.createUser({
-          email,
-          password: randomBytes(36).toString('base64url'),
-          email_confirm: Boolean(old.emailVerified),
-          user_metadata: { full_name: old.name || '' },
-        });
-        if (error) throw new Error('Supabase account creation failed: ' + error.message);
-        user = data.user;
+        if (old.emailVerified) {
+          const { data, error } = await supabase.auth.admin.createUser({
+            email,
+            password: randomBytes(36).toString('base64url'),
+            email_confirm: true,
+            user_metadata: { full_name: old.name || '' },
+          });
+          if (error) throw new Error('Supabase account creation failed: ' + error.message);
+          user = data.user;
+          const recovery = await publicAuth.auth.resetPasswordForEmail(email, { redirectTo: resetUrl });
+          if (recovery.error) throw new Error('Password recovery email could not be sent: ' + recovery.error.message);
+        } else {
+          const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+            data: { full_name: old.name || '' },
+            redirectTo: resetUrl,
+          });
+          if (error) throw new Error('Supabase account invitation failed: ' + error.message);
+          user = data.user;
+        }
         byEmail.set(email, user);
       }
       plan.push({ oldId: old.id, newId: user?.id || null, email, name: old.name || '' });
