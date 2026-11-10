@@ -89,7 +89,7 @@ Do not run it against a preview database unless that is the intended target. Do 
 - The server validates each token with Supabase Auth before accessing Neon.
 - Client-provided metadata cannot assign roles.
 - Neon remains authoritative for MAXWEB roles and business permissions.
-- The first two verified accounts claim the two existing Super Admin slots; later public signups remain clients.
+- Only the verified email address `maxweb.w@gmail.com` can claim the initial Super Admin slot. All other public signups remain clients; additional administrators must be invited by an existing administrator.
 - Admin invitations continue to be stored and audited in Neon.
 
 ## Existing customer and quotation flow
