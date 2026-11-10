@@ -1,8 +1,9 @@
 -- MAXWEB sales copilot, pricing controls, and demo management.
+-- Account IDs are Supabase Auth UUIDs stored as text; no cross-database account foreign keys.
 -- Apply only to the isolated maxweb-development Neon branch.
 CREATE TABLE IF NOT EXISTS public.maxweb_ai_conversations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id text REFERENCES public."user"(id) ON DELETE SET NULL,
+  user_id text ON DELETE SET NULL,
   source text NOT NULL DEFAULT 'website' CHECK (source IN ('website','client_portal','instagram','whatsapp','phone')),
   status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','needs_admin_review','reviewing','quoted','converted','closed')),
   customer_name text,
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.maxweb_pricing_rules (
   minimum_price numeric(12,2) NOT NULL CHECK (minimum_price >= 0 AND minimum_price <= base_price),
   max_discount_percent numeric(5,2) NOT NULL DEFAULT 0 CHECK (max_discount_percent >= 0 AND max_discount_percent <= 100),
   active boolean NOT NULL DEFAULT true,
-  updated_by text REFERENCES public."user"(id),
+  updated_by text,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
