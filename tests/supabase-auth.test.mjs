@@ -35,3 +35,28 @@ test('rejects identities without a stable id or email', () => {
   assert.equal(normalizeSupabaseUser({ id: 'abc' }), null);
   assert.equal(normalizeSupabaseUser({ email: 'a@example.com' }), null);
 });
+
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+test('dashboard pages load shared and page scripts as ordered ES modules', async () => {
+  const pages = ['admin.html', 'portal.html', 'accept-invite.html', 'setup-admin.html'];
+  for (const page of pages) {
+    const html = await readFile(resolve(root, page), 'utf8');
+    assert.match(html, /<script type="module" src="\/js\/dashboard-common\.js"><\/script>/, page + ' must load dashboard-common as a module');
+    assert.match(html, /<script type="module" src="\/js\/(?:admin|portal|accept-invite|setup-admin)\.js"><\/script>/, page + ' must load its page script as a module');
+  }
+});
+
+test('fresh Neon migrations do not depend on the Better Auth user table', async () => {
+  for (const file of ['db-migration-001.sql', 'db-migration-002.sql', 'db-migration-003-first-two-admins.sql']) {
+    const sql = await readFile(resolve(root, file), 'utf8');
+    assert.doesNotMatch(sql, /REFERENCES\s+public\."user"/i, file + ' must not create cross-provider account foreign keys');
+  }
+  const compatibility = await readFile(resolve(root, 'db-migration-004-supabase-auth.sql'), 'utf8');
+  assert.match(compatibility, /CREATE VIEW public\."user"/i);
+  assert.match(compatibility, /FROM public\.maxweb_profiles/i);
+});
