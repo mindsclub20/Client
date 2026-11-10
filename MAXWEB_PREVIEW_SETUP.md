@@ -1,45 +1,90 @@
-# MAXWEB preview setup and release checklist
+# MAXWEB dual-system architecture and release checklist
 
-## Current development target
+## Target architecture
 
-- Git branch: `feature/maxweb-non-ai-foundation`
-- Vercel project: `maxweb`
-- Database: Neon project `Maxxweb`, isolated `maxweb-development` branch
-- Production database and production deployment are intentionally untouched.
+- Supabase project MAXWEB (lpplrraoanuxlojduswi, ap-south-1) is the only account provider. It owns account identities, password credentials, email confirmation, sessions, and password recovery.
+- Neon project Maxxweb (lingering-lab-71539787) remains the only application-data database. Customers, business profiles/roles, leads, projects, quotations, invoices, payments, support, AI conversations, pricing, invitations, and audit history stay in Neon.
+- Vercel project maxweb hosts the application and API.
+- No Supabase application tables or duplicate business database are required.
 
-## Required preview environment variables
+The Neon maxweb_profiles table remains a business profile/authorization record. Its email and full_name fields are contact/profile data, not passwords or login credentials. A read-only public."user" compatibility view is created from those profiles so existing admin list queries can continue to work after the Better Auth account table is removed.
 
-Set these in Vercel Project Settings → Environment Variables, targeting Preview for the feature branch only:
+## Branch and production safety
+
+- Git branch: feature/supabase-auth-neon-data
+- Vercel project: maxweb
+- Neon production branch: production
+- Neon preview branch: maxweb-development
+- The feature branch is isolated. No production deployment or Neon production migration is performed by this repository change.
+
+## Vercel environment variables
+
+Set these in Vercel Project Settings → Environment Variables:
 
 | Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | Pooled connection string for the isolated Neon development branch |
-| `BETTER_AUTH_SECRET` | Strong random secret used by Better Auth |
-| `BETTER_AUTH_URL` | The exact preview deployment URL used for authentication callbacks |
-| `RESEND_API_KEY` | Server-side Resend API key for verification and password-reset email |
-| `RESEND_FROM_EMAIL` | Sender address verified in Resend |
-| `MAXWEB_AI_API_KEY` | Server-side key for the OpenAI-compatible AI provider |
-| `MAXWEB_AI_MODEL` | Model identifier enabled for the selected provider |
-| `MAXWEB_AI_BASE_URL` | Optional provider API base URL; defaults to the Groq OpenAI-compatible endpoint |
+| SUPABASE_URL | MAXWEB Supabase project API URL |
+| SUPABASE_PUBLISHABLE_KEY | Supabase publishable key; safe for browser use |
+| DATABASE_URL | Neon connection string for the environment being deployed |
+| MAXWEB_AI_API_KEY | Server-side AI provider key |
+| MAXWEB_AI_MODEL | AI model identifier |
+| MAXWEB_AI_BASE_URL | Optional OpenAI-compatible API base URL |
 
-Never place provider keys in browser JavaScript, public HTML, or Git. Do not send secrets in chat. Use the Vercel environment-variable interface.
+Do not add SUPABASE_SECRET_KEY to browser code or Vercel production. It is required only for the one-time local account migration script. Never commit secrets or send them in chat.
 
-## Database
+Remove the obsolete BETTER_AUTH_SECRET and BETTER_AUTH_URL values after the cutover is complete. The old Better Auth verification/reset path is no longer used by the login UI.
 
-- Apply `db-migration-001.sql` only to the development branch if the existing base tables are absent.
-- Apply `db-migration-002.sql` only to the development branch for AI conversations, pricing rules, demos, and AI rate limiting.
-- The development branch has been inspected and the new tables are present.
-- Do not run these migrations against production without a separate approved release plan.
+## Supabase Auth dashboard configuration
 
-## Super Admin provisioning
+1. Enable Email provider and password sign-in.
+2. Keep email confirmations enabled.
+3. Set the Site URL to the production MAXWEB URL: https://maxweb-one.vercel.app.
+4. Add the production URL and each actual Vercel preview URL to the Auth redirect allowlist. Include /reset-password.html and the root confirmation redirect. Do not use a wildcard for unrelated domains.
+5. Configure a custom SMTP sender for production verification and password-recovery email. The SMTP credentials belong in Supabase Auth SMTP settings, not in browser JavaScript.
+6. Test signup confirmation, password recovery, expired links, and sign-out after environment variables are configured.
 
-The server allowlists exactly:
-- `bvshyam7777@gmail.com`
-- `saicharan8825@gmail.com`
+## One-time account migration
 
-A verified sign-in provisions the matching account as `super_admin`. An unverified allowlisted account is kept as a client until verification succeeds. Public signup cannot assign an administrative role. No password or verification state is changed by this repository workflow.
+The migration script is guarded and defaults to dry-run:
 
-## Customer and quotation flow
+    node scripts/migrate-better-auth-to-supabase.mjs
+
+Before applying:
+- Take a Neon backup/restore point.
+- Confirm the Supabase project URL and secret key refer to the MAXWEB project.
+- Review the dry-run account count.
+- Ensure Supabase Auth email delivery is configured.
+
+Then apply locally with:
+
+    CONFIRM_MAXWEB_AUTH_MIGRATION=YES node scripts/migrate-better-auth-to-supabase.mjs --apply
+
+The script:
+- Creates or matches Supabase Auth identities for existing Neon users.
+- Remaps Neon business-record identity references to the Supabase UUIDs.
+- Preserves Neon business profiles, roles, and business records.
+- Removes only Better Auth credential/session/verification tables after the remap succeeds.
+- Creates a read-only compatibility view for existing MAXWEB profile joins.
+
+Password hashes cannot be copied safely from Better Auth into Supabase Auth. Migrated users must verify their email and set a new password. The current production Neon inventory showed four legacy accounts, all unverified at inspection time. The script does not print email addresses, passwords, or hashes.
+
+The migration script requires local environment variables:
+- DATABASE_URL — Neon production connection string
+- SUPABASE_URL
+- SUPABASE_SECRET_KEY — Supabase secret key, local only
+
+Do not run it against a preview database unless that is the intended target. Do not run it twice after it reports completion.
+
+## Authorization behavior
+
+- The browser signs in through Supabase Auth and sends its access token as a Bearer token to MAXWEB APIs.
+- The server validates each token with Supabase Auth before accessing Neon.
+- Client-provided metadata cannot assign roles.
+- Neon remains authoritative for MAXWEB roles and business permissions.
+- The first two verified accounts claim the two existing Super Admin slots; later public signups remain clients.
+- Admin invitations continue to be stored and audited in Neon.
+
+## Existing customer and quotation flow
 
 1. Customers browse demos or contact MAXWEB through the assistant, phone, Instagram, or WhatsApp.
 2. The assistant collects requirements and may create a provisional proposal only within active pricing rules.
@@ -47,15 +92,16 @@ A verified sign-in provisions the matching account as `super_admin`. An unverifi
 4. A formal quotation is issued to a signed-in client account.
 5. The customer accepts the quotation in the client portal.
 6. Only then can an administrator create the project and attach the accepted quotation.
-7. The client portal is for tracking projects, quotations, invoices, support, and profile details; it does not create projects.
+7. The client portal tracks projects, quotations, invoices, support, and profile details; it does not create projects.
 
-## Verification still required before production
+## Verification before production
 
-- Configure and verify Resend sender credentials and test verification/reset delivery.
-- Configure an AI provider key and model; test real AI conversations and provider error handling.
-- Verify both allowlisted accounts have registered and verified email addresses before expecting Super Admin access.
-- Complete authenticated end-to-end tests for client signup, quote acceptance, project creation, invoices, support, and both Super Admin dashboards.
-- Configure a durable file-storage provider before enabling project file upload/download.
-- Review payment records with an authorized adult/business owner; the app records externally confirmed payments and does not process transactions.
-- Review the homepage hero copy difference against the public baseline before release. The homepage HTML and design were not redesigned in this branch.
-- Obtain explicit approval before merging or deploying to production.
+- Run npm test and the GitHub Actions checks.
+- Configure Supabase Auth and Vercel environment variables.
+- Run the guarded migration against the intended Neon production database after taking a backup.
+- Test signup, confirmation, login, session refresh, logout, password recovery, admin invitation, and role authorization.
+- Test the customer quote acceptance and project workflow.
+- Confirm Neon business table row counts before and after migration.
+- Configure durable file storage before enabling project file upload/download.
+- The application records externally confirmed payments; it does not process transactions.
+- Obtain explicit approval before merging or deploying the feature branch to production.
