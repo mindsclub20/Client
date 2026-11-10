@@ -82,6 +82,21 @@ async function main() {
     try {
       await client.query('ALTER TABLE public.maxweb_profiles ADD COLUMN IF NOT EXISTS email text');
       const mapParams = plan.flatMap(x => [x.oldId, x.newId]);
+      const refs = await client.query(
+        `SELECT tc.table_name,tc.constraint_name,kcu.column_name
+         FROM information_schema.table_constraints tc
+         JOIN information_schema.key_column_usage kcu
+           ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema
+         JOIN information_schema.constraint_column_usage ccu
+           ON ccu.constraint_name=tc.constraint_name AND ccu.table_schema=tc.table_schema
+         WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public'
+           AND ccu.table_name='user' AND tc.table_name <> 'maxweb_profiles'`
+      );
+      // Drop all old-account FKs before inserting UUID keys that only exist in Supabase.
+      for (const ref of refs.rows) {
+        await client.query(`ALTER TABLE public.${ident(ref.table_name)} DROP CONSTRAINT ${ident(ref.constraint_name)}`);
+      }
+
       await client.query(
         `INSERT INTO public.maxweb_profiles(user_id,email,role,full_name,phone,created_at,updated_at)
          SELECT m.new_id,u.email,COALESCE(p.role,'client'),
@@ -97,16 +112,6 @@ async function main() {
         mapParams
       );
 
-      const refs = await client.query(
-        `SELECT tc.table_name,tc.constraint_name,kcu.column_name
-         FROM information_schema.table_constraints tc
-         JOIN information_schema.key_column_usage kcu
-           ON tc.constraint_name=kcu.constraint_name AND tc.table_schema=kcu.table_schema
-         JOIN information_schema.constraint_column_usage ccu
-           ON ccu.constraint_name=tc.constraint_name AND ccu.table_schema=tc.table_schema
-         WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public'
-           AND ccu.table_name='user' AND tc.table_name <> 'maxweb_profiles'`
-      );
       for (const ref of refs.rows) {
         const table = ident(ref.table_name), column = ident(ref.column_name);
         await client.query(
@@ -115,7 +120,6 @@ async function main() {
            WHERE target.${column}=mapping.old_id`,
           mapParams
         );
-        await client.query(`ALTER TABLE public.${table} DROP CONSTRAINT ${ident(ref.constraint_name)}`);
       }
 
       await client.query(
