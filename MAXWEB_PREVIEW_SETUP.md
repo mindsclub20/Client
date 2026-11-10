@@ -115,3 +115,14 @@ Do not run it against a preview database unless that is the intended target. Do 
 ## Administrator access
 
 MAXWEB does not create or invite administrator accounts in-app. Create the user in Supabase Auth, then assign `app_metadata.role` to `admin` or `super_admin` using a trusted Supabase administrator workflow. MAXWEB reads this server-managed metadata and synchronizes the role into the Neon `maxweb_profiles` record at the next authenticated request. Never use user-editable `user_metadata` for authorization.
+
+For a manually assigned Super Admin, run this in the Supabase SQL Editor after creating and confirming the user:
+
+```sql
+UPDATE auth.users
+SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb)
+  || jsonb_build_object('role', 'super_admin')
+WHERE lower(email) = lower('ADMIN_EMAIL_HERE');
+```
+
+Use `admin` instead of `super_admin` for a regular administrator. This changes only server-managed `app_metadata`; never put roles in `raw_user_meta_data`.
