@@ -1,3 +1,4 @@
+import './dashboard-common.js';
 (function(){
 const M=window.MW,$=id=>document.getElementById(id),v=$('view');
 const titles={overview:'Overview',clients:'Clients',leads:'Website leads',projects:'Projects',requests:'Requests',quotations:'Quotations',invoices:'Invoices & payments',support:'Support',team:'Team access','ai-conversations':'AI sales inbox',pricing:'Pricing rules',demos:'Demo management',audit:'Audit log'};
