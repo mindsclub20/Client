@@ -5,6 +5,7 @@ on:
       - feature/maxweb-non-ai-foundation
       - fix/maxweb-completion-qa
       - fix/maxweb-owner-readiness
+      - feature/client-supabase-login
     paths:
       - 'api/**'
       - 'lib/**'
@@ -15,6 +16,8 @@ on:
       - 'vercel.json'
       - 'admin.html'
       - 'portal.html'
+      - 'client.html'
+      - 'client-reset-password.html'
       - 'accept-invite.html'
       - 'setup-admin.html'
       - 'db-migration-001.sql'
