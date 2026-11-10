@@ -1,0 +1,4 @@
+import { pool } from '../lib/db.js';
+import { requireUser, json, audit } from '../lib/access.js';
+import { text } from '../lib/validation.js';
+export async function PATCH(request){try{const c=await requireUser(request);if(c.response)return c.response;const b=await request.json().catch(()=>null),name=text(b?.fullName,{max:120}),phone=b?.phone==null||b.phone===''?null:text(b.phone,{max:32});if(!name||(b?.phone&&!phone))return json({error:'invalid_input'},400);const {rows}=await pool.query('UPDATE public.maxweb_profiles SET full_name=$2,phone=$3,updated_at=now() WHERE user_id=$1 RETURNING full_name,phone',[c.user.id,name,phone]);await audit(c.user.id,'profile.updated','profile',c.user.id);return json({profile:rows[0]});}catch(e){console.error(e?.message);return json({error:'server_error'},500);}}

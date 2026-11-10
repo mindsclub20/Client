@@ -1,0 +1,51 @@
+name: Extract and arrange MAXWEB source
+
+on:
+  push:
+    branches:
+      - maxweb-deploy
+    paths:
+      - .github/workflows/extract-maxweb.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out deployment branch
+        uses: actions/checkout@v4
+        with:
+          ref: maxweb-deploy
+          fetch-depth: 0
+
+      - name: Extract uploaded archive from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git show origin/main:MAXWEB.zip > "$RUNNER_TEMP/MAXWEB.zip"
+          unzip -t "$RUNNER_TEMP/MAXWEB.zip"
+          unzip -o "$RUNNER_TEMP/MAXWEB.zip" -d "$GITHUB_WORKSPACE"
+          test -f index.html
+          test -f package.json
+          test -f vercel.json
+          test -f "api/auth/[...all].js"
+          test -f images/logo.png
+          test -f images/logo.svg
+
+      - name: Commit arranged application files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html package.json vercel.json api/ lib/ css/ js/ images/ tests/
+          if git diff --cached --quiet; then
+            echo "No extracted source changes to commit."
+            exit 0
+          fi
+          git commit -m "Extract and arrange MAXWEB application source"
+          git push origin HEAD:maxweb-deploy

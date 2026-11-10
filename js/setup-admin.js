@@ -1,0 +1,1 @@
+document.getElementById('form').addEventListener('submit',async e=>{e.preventDefault();const token=new FormData(e.currentTarget).get('token');try{await MW.api('/api/admin/bootstrap',{method:'POST',body:{token}});location.replace('/admin.html');}catch(err){document.getElementById('message').textContent=err.message;}});

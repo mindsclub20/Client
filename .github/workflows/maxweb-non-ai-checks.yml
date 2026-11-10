@@ -1,0 +1,41 @@
+name: MAXWEB non-AI checks
+on:
+  push:
+    branches:
+      - feature/maxweb-non-ai-foundation
+      - fix/maxweb-completion-qa
+      - fix/maxweb-owner-readiness
+      - feature/client-supabase-login
+    paths:
+      - 'api/**'
+      - 'lib/**'
+      - 'js/**'
+      - 'css/**'
+      - 'index.html'
+      - 'favicon.svg'
+      - 'vercel.json'
+      - 'admin.html'
+      - 'portal.html'
+      - 'client.html'
+      - 'client-reset-password.html'
+      - 'accept-invite.html'
+      - 'setup-admin.html'
+      - 'db-migration-001.sql'
+      - 'db-migration-002.sql'
+      - 'package.json'
+      - 'tests/**'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts
+      - name: Syntax-check server and browser JavaScript
+        run: find api lib js -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Run regression tests
+        run: npm test
