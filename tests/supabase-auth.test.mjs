@@ -68,3 +68,13 @@ test('admin and portal modules wait for the shared auth client before using dash
     assert.match(source, /^import ['"]\.\/dashboard-common\.js['"];?/, file + ' must import dashboard-common as a module dependency');
   }
 });
+
+import { isInitialSuperAdminEmail } from '../lib/admin-provisioning.js';
+
+test('only the configured initial Super Admin email is eligible for bootstrap', () => {
+  assert.equal(isInitialSuperAdminEmail('maxweb.w@gmail.com'), true);
+  assert.equal(isInitialSuperAdminEmail('MAXWEB.W@GMAIL.COM'), true);
+  assert.equal(isInitialSuperAdminEmail('another@example.com'), false);
+  assert.equal(isInitialSuperAdminEmail(''), false);
+  assert.equal(isInitialSuperAdminEmail(null), false);
+});
