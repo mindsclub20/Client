@@ -90,7 +90,6 @@ Do not run it against a preview database unless that is the intended target. Do 
 - Client-provided metadata cannot assign roles.
 - Neon remains authoritative for MAXWEB roles and business permissions.
 - Only the verified email address `maxweb.w@gmail.com` can claim the initial Super Admin slot. All other public signups remain clients; additional administrators must be invited by an existing administrator.
-- Admin invitations continue to be stored and audited in Neon.
 
 ## Existing customer and quotation flow
 
@@ -107,9 +106,12 @@ Do not run it against a preview database unless that is the intended target. Do 
 - Run npm test and the GitHub Actions checks.
 - Configure Supabase Auth and Vercel environment variables.
 - Run the guarded migration against the intended Neon production database after taking a backup.
-- Test signup, confirmation, login, session refresh, logout, password recovery, admin invitation, and role authorization.
 - Test the customer quote acceptance and project workflow.
 - Confirm Neon business table row counts before and after migration.
 - Configure durable file storage before enabling project file upload/download.
 - The application records externally confirmed payments; it does not process transactions.
 - Obtain explicit approval before merging or deploying the feature branch to production.
+
+## Administrator access
+
+MAXWEB does not create or invite administrator accounts in-app. Create the user in Supabase Auth, then assign `app_metadata.role` to `admin` or `super_admin` using a trusted Supabase administrator workflow. MAXWEB reads this server-managed metadata and synchronizes the role into the Neon `maxweb_profiles` record at the next authenticated request. Never use user-editable `user_metadata` for authorization.
