@@ -43,6 +43,12 @@ Remove the obsolete BETTER_AUTH_SECRET and BETTER_AUTH_URL values after the cuto
 5. Configure a custom SMTP sender for production verification and password-recovery email. The SMTP credentials belong in Supabase Auth SMTP settings, not in browser JavaScript.
 6. Test signup confirmation, password recovery, expired links, and sign-out after environment variables are configured.
 
+## Database setup paths
+
+**Existing MAXWEB Neon database with Better Auth accounts:** back up Neon, configure Supabase Auth email delivery, then use the guarded one-time account migration below. It remaps existing account references and creates the read-only `public."user"` compatibility view used by existing admin queries. Do not run `db-migration-004-supabase-auth.sql` before this account migration on an existing database because the legacy `public."user"` table must still be present for the migration script.
+
+**New Neon database:** apply `db-migration-001.sql`, `db-migration-002.sql`, and `db-migration-003-first-two-admins.sql`, then apply `db-migration-004-supabase-auth.sql`. Skip the Better Auth account migration script because there are no legacy accounts to migrate.
+
 ## One-time account migration
 
 The migration script is guarded and defaults to dry-run:
