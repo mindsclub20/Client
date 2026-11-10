@@ -1,7 +1,7 @@
 import './dashboard-common.js';
 (function(){
 const M=window.MW,$=id=>document.getElementById(id),v=$('view');
-const titles={overview:'Overview',clients:'Clients',leads:'Website leads',projects:'Projects',requests:'Requests',quotations:'Quotations',invoices:'Invoices & payments',support:'Support',team:'Team access','ai-conversations':'AI sales inbox',pricing:'Pricing rules',demos:'Demo management',audit:'Audit log'};
+const titles={overview:'Overview',clients:'Clients',leads:'Website leads',projects:'Projects',requests:'Requests',quotations:'Quotations',invoices:'Invoices & payments',support:'Support','ai-conversations':'AI sales inbox',pricing:'Pricing rules',demos:'Demo management',audit:'Audit log'};
 function table(h,rows){return rows.length?'<div class="table-wrap"><table class="data"><thead><tr>'+h.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>':'<div class="empty">No records yet.</div>';}
 function metric(label,value){return '<div class="metric"><span>'+M.esc(label)+'</span><strong>'+M.esc(value)+'</strong></div>';}
 async function overview(){const d=await M.api('/api/admin/overview'),m=d.metrics;v.innerHTML='<div class="metric-grid">'+metric('Clients',m.clients)+metric('Active projects',m.activeProjects)+metric('Pending requests',m.pendingRequests)+metric('Quotes awaiting response',m.quotationsAwaitingClient)+metric('Unpaid invoices',m.unpaidInvoices)+metric('Open tickets',m.openTickets)+'</div><div class="panel"><h2>Recent projects</h2>'+table(['Project','Client','Status','Updated'],(d.recentProjects||[]).map(p=>'<tr><td>'+M.esc(p.title)+'</td><td>'+M.esc(p.client_name||p.client_email)+'</td><td>'+M.status(p.status)+'</td><td>'+M.date(p.updated_at)+'</td></tr>'))+'</div>';}
