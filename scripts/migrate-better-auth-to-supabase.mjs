@@ -90,7 +90,7 @@ async function main() {
          JOIN information_schema.constraint_column_usage ccu
            ON ccu.constraint_name=tc.constraint_name AND ccu.table_schema=tc.table_schema
          WHERE tc.constraint_type='FOREIGN KEY' AND tc.table_schema='public'
-           AND ccu.table_name='user' AND tc.table_name <> 'maxweb_profiles'`
+           AND ccu.table_name='user'`
       );
       // Drop all old-account FKs before inserting UUID keys that only exist in Supabase.
       for (const ref of refs.rows) {
@@ -113,6 +113,7 @@ async function main() {
       );
 
       for (const ref of refs.rows) {
+        if (ref.table_name === 'maxweb_profiles') continue;
         const table = ident(ref.table_name), column = ident(ref.column_name);
         await client.query(
           `UPDATE public.${table} AS target SET ${column}=mapping.new_id
