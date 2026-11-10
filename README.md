@@ -12,8 +12,8 @@ MAXWEB now uses a native Next.js App Router architecture on Vercel. The Vercel p
 - Supabase Postgres remains available for future business data. No application tables are created by this migration.
 
 ## Vercel environment variables
-- `SUPABASE_URL`: MAXWEB Supabase project URL.
-- `SUPABASE_ANON_KEY`: Supabase publishable key or legacy anon key.
+- `SUPABASE_URL`: MAXWEB Supabase project URL (Production and Preview).
+- `SUPABASE_ANON_KEY`: Supabase publishable key or legacy anon key (Production and Preview).
 
 Do not expose a service-role/secret key in browser code or a `NEXT_PUBLIC_` variable. The existing Vercel variable names are supported.
 
