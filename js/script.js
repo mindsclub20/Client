@@ -345,7 +345,7 @@
     ty.innerHTML = '<div class="ty"><i></i><i></i><i></i></div>';
     msgs.appendChild(ty);
     msgs.scrollTop = msgs.scrollHeight;
-    import("./supabase-client.js").then(function (module) {
+    import("/js/supabase-client.js").then(function (module) {
       return module.supabase.auth.getSession().then(function (result) {
         return result.data && result.data.session ? result.data.session.access_token : null;
       });
