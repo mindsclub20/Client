@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "unzip -o MAXWEB.zip -d . && npm install && npm run build",
-  "outputDirectory": "dist"
+  "buildCommand": "unzip -o MAXWEB.zip -d .",
+  "outputDirectory": "."
 }
