@@ -13,7 +13,7 @@ test("application uses the Next.js App Router", () => {
   assert.equal(packageJson.dependencies.next, "15.5.29");
   assert.match(packageJson.scripts.build, /next build/);
   assert.match(packageJson.scripts.build, /site-source\\.html/);
-  assert.match(page, /public.*index\.html/);
+  assert.match(page, /site-source\.html/);
 });
 test("server auth uses Supabase SSR without a service-role key", async () => {
   const source = await readFile(new URL("../lib/supabase/server.ts", import.meta.url), "utf8");
