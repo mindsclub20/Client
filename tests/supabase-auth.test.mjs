@@ -96,3 +96,25 @@ test('admin invitation acceptance requires matching email, an unused token, and 
   assert.equal(canAcceptAdminInvitation({ ...invitation, expires_at: '2026-11-09T00:00:00Z' }, user, new Date('2026-11-10T00:00:00Z')), false);
   assert.equal(canAcceptAdminInvitation(invitation, { ...user, emailVerified: false }, new Date('2026-11-10T00:00:00Z')), false);
 });
+
+test('admin API exposes guarded bootstrap and single-use invitation acceptance routes', async () => {
+  const source = await readFile(resolve(root, 'api/admin.js'), 'utf8');
+  assert.match(source, /path==='bootstrap'\)return await bootstrapInitialAdmin/);
+  assert.match(source, /path==='invitations\/accept'\)return await acceptInvitation/);
+  assert.match(source, /WHERE token_hash=\$1 FOR UPDATE/);
+  assert.match(source, /invitation_invalid_or_expired/);
+  assert.match(source, /current\.user\.emailVerified/);
+});
+
+test('initial admin setup does not rely on an unsupported setup token form', async () => {
+  const html = await readFile(resolve(root, 'setup-admin.html'), 'utf8');
+  const script = await readFile(resolve(root, 'js/setup-admin.js'), 'utf8');
+  assert.match(html, /id="message"/);
+  assert.doesNotMatch(html, /name="token"/);
+  assert.match(script, /\/api\/admin\/bootstrap/);
+});
+
+test('invitation acceptance frontend calls the implemented admin route', async () => {
+  const source = await readFile(resolve(root, 'js/accept-invite.js'), 'utf8');
+  assert.match(source, /\/api\/admin\/invitations\/accept/);
+});
