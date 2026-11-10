@@ -78,3 +78,21 @@ test('only the configured initial Super Admin email is eligible for bootstrap', 
   assert.equal(isInitialSuperAdminEmail(''), false);
   assert.equal(isInitialSuperAdminEmail(null), false);
 });
+
+import { hashInvitationToken, canAcceptAdminInvitation } from '../lib/admin-provisioning.js';
+
+test('invitation tokens are hashed before database lookup', () => {
+  assert.match(hashInvitationToken('a'.repeat(43)), /^[a-f0-9]{64}$/);
+  assert.equal(hashInvitationToken('short'), null);
+  assert.equal(hashInvitationToken(null), null);
+});
+
+test('admin invitation acceptance requires matching email, an unused token, and a future expiry', () => {
+  const invitation = { email: 'Admin@Example.com', accepted_at: null, expires_at: '2026-11-11T00:00:00Z' };
+  const user = { email: 'admin@example.com', emailVerified: true };
+  assert.equal(canAcceptAdminInvitation(invitation, user, new Date('2026-11-10T00:00:00Z')), true);
+  assert.equal(canAcceptAdminInvitation(invitation, { ...user, email: 'other@example.com' }, new Date('2026-11-10T00:00:00Z')), false);
+  assert.equal(canAcceptAdminInvitation({ ...invitation, accepted_at: '2026-11-09T00:00:00Z' }, user, new Date('2026-11-10T00:00:00Z')), false);
+  assert.equal(canAcceptAdminInvitation({ ...invitation, expires_at: '2026-11-09T00:00:00Z' }, user, new Date('2026-11-10T00:00:00Z')), false);
+  assert.equal(canAcceptAdminInvitation(invitation, { ...user, emailVerified: false }, new Date('2026-11-10T00:00:00Z')), false);
+});
