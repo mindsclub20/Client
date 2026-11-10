@@ -1,2 +1,14 @@
 import './dashboard-common.js';
-document.getElementById('form').addEventListener('submit',async e=>{e.preventDefault();const token=new FormData(e.currentTarget).get('token');try{await MW.api('/api/admin/bootstrap',{method:'POST',body:{token}});location.replace('/admin.html');}catch(err){document.getElementById('message').textContent=err.message;}});
+(async () => {
+  const message = document.getElementById('message');
+  try {
+    const result = await MW.api('/api/admin/bootstrap', { method: 'POST', body: {} });
+    if (result.ready && result.role === 'super_admin') {
+      location.replace('/admin.html');
+      return;
+    }
+    message.textContent = 'This verified account is not authorised for initial administrator setup.';
+  } catch (error) {
+    message.textContent = error.message || 'Sign in with the verified initial administrator account first.';
+  }
+})();
