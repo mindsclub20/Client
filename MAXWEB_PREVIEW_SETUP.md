@@ -66,11 +66,12 @@ The script:
 - Removes only Better Auth credential/session/verification tables after the remap succeeds.
 - Creates a read-only compatibility view for existing MAXWEB profile joins.
 
-Password hashes cannot be copied safely from Better Auth into Supabase Auth. Migrated users must verify their email and set a new password. The current production Neon inventory showed four legacy accounts, all unverified at inspection time. The script does not print email addresses, passwords, or hashes.
+Password hashes cannot be copied safely from Better Auth into Supabase Auth. Migrated users must verify their email and set a new password. The current production Neon inventory showed four legacy accounts, all unverified at inspection time. The script sends Supabase invitation emails to legacy unverified accounts and password-recovery emails to legacy verified accounts after SMTP is configured. The script does not print email addresses, passwords, or hashes.
 
 The migration script requires local environment variables:
 - DATABASE_URL — Neon production connection string
 - SUPABASE_URL
+- SUPABASE_PUBLISHABLE_KEY — Supabase publishable key, also required locally
 - SUPABASE_SECRET_KEY — Supabase secret key, local only
 
 Do not run it against a preview database unless that is the intended target. Do not run it twice after it reports completion.
