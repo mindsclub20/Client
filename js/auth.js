@@ -38,6 +38,19 @@ import { supabase } from './supabase-client.js';
     return message || "Something went wrong. Please try again.";
   }
 
+  function setSupabaseUser(session) {
+    if (!session || !session.user) return false;
+    user = {
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.user_metadata && session.user.user_metadata.full_name || session.user.email,
+      role: "client",
+      emailVerified: !!(session.user.email_confirmed_at || session.user.confirmed_at),
+    };
+    authProvider = "supabase";
+    return true;
+  }
+
   async function loadSession() {
     try {
       const legacy = await fetch("/api/me", { credentials: "same-origin", cache: "no-store" });
@@ -51,16 +64,7 @@ import { supabase } from './supabase-client.js';
       }
     } catch {}
     const { data: { session } } = await supabase.auth.getSession();
-    if (session && session.user) {
-      user = {
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.user_metadata && session.user.user_metadata.full_name || session.user.email,
-        role: "client",
-        emailVerified: !!(session.user.email_confirmed_at || session.user.confirmed_at),
-      };
-      authProvider = "supabase";
-    } else {
+    if (!setSupabaseUser(session)) {
       user = null;
       authProvider = null;
     }
@@ -127,7 +131,7 @@ import { supabase } from './supabase-client.js';
         if (error) throw error;
         $("ap").value = "";
         if (data && data.session) {
-          await loadSession();
+          setSupabaseUser(data.session);
           window.location.assign("/client.html");
           return;
         }
@@ -149,8 +153,8 @@ import { supabase } from './supabase-client.js';
 
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      await loadSession();
-      if (!user || authProvider !== "supabase") {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!setSupabaseUser(session)) {
         setErr("Your client session could not be confirmed. Verify your email and try again.");
         return;
       }
