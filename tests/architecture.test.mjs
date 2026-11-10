@@ -10,7 +10,7 @@ test("Shyam is listed as a MAXWEB co-founder", () => {
   assert.match(page, /Co-founder/);
 });
 test("application uses the Next.js App Router", () => {
-  assert.equal(packageJson.dependencies.next, "15.5.6");
+  assert.equal(packageJson.dependencies.next, "15.5.29");
   assert.match(page, /public.*index\.html/);
 });
 test("server auth uses Supabase SSR without a service-role key", async () => {
