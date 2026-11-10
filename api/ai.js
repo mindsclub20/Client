@@ -11,7 +11,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 async function rateLimited(request) {
   const forwarded = request.headers.get('x-forwarded-for') || '';
   const address = forwarded.split(',')[0].trim() || 'unknown';
-  const secret = process.env.BETTER_AUTH_SECRET || 'maxweb-ai-rate-limit';
+  const secret = process.env.MAXWEB_AI_API_KEY || 'maxweb-ai-rate-limit';
   const keyHash = createHash('sha256').update(secret + ':' + address).digest('hex');
   const { rows } = await pool.query(
     `INSERT INTO public.maxweb_ai_rate_limits(key_hash, window_started_at, request_count)
