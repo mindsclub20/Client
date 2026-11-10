@@ -18,7 +18,7 @@ MAXWEB now uses a native Next.js App Router architecture on Vercel. The existing
 Do not expose a service-role/secret key in browser code or a `NEXT_PUBLIC_` variable. The existing Vercel variable names are supported.
 
 ## Local development
-The Vercel build extracts only `index.html`, CSS, the existing site behavior script, and images from `MAXWEB.zip` into `public/`. It then builds the Next.js application and API routes.
+The Vercel build extracts only the original `index.html` as `public/site-source.html`, plus CSS, the existing site behavior script, and images from `MAXWEB.zip` into `public/`. It then builds the Next.js application and API routes.
 
 ```bash
 npm install
