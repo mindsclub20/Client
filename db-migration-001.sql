@@ -7,12 +7,6 @@ CREATE TABLE IF NOT EXISTS public.maxweb_profiles (
  role text NOT NULL DEFAULT 'client' CHECK(role IN ('super_admin','admin','client')),
  full_name text, phone text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE IF NOT EXISTS public.maxweb_admin_invitations (
- id uuid PRIMARY KEY DEFAULT gen_random_uuid(), email text NOT NULL,
- role text NOT NULL DEFAULT 'admin' CHECK(role='admin'), token_hash text NOT NULL UNIQUE,
- invited_by text NOT NULL, expires_at timestamptz NOT NULL,
- accepted_at timestamptz, created_at timestamptz NOT NULL DEFAULT now()
-);
 CREATE TABLE IF NOT EXISTS public.maxweb_projects (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), client_user_id text NOT NULL,
  title text NOT NULL, description text NOT NULL DEFAULT '', service_type text NOT NULL DEFAULT 'Website development',
@@ -84,4 +78,3 @@ CREATE INDEX IF NOT EXISTS maxweb_quotes_user_idx ON public.maxweb_quotations(us
 CREATE INDEX IF NOT EXISTS maxweb_invoices_user_idx ON public.maxweb_invoices(user_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS maxweb_tickets_user_idx ON public.maxweb_support_tickets(user_id,updated_at DESC);
 CREATE INDEX IF NOT EXISTS maxweb_audit_created_idx ON public.maxweb_audit_logs(created_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS maxweb_admin_invites_active_email_idx ON public.maxweb_admin_invitations(lower(email)) WHERE accepted_at IS NULL;
