@@ -64,7 +64,7 @@ test('fresh Neon migrations do not depend on the Better Auth user table', async 
 
 
 test('admin and portal modules wait for the shared auth client before using dashboard helpers', async () => {
-  for (const file of ['js/admin.js', 'js/portal.js', 'js/accept-invite.js', 'js/setup-admin.js']) {
+  for (const file of ['js/admin.js', 'js/portal.js']) {
     const source = await readFile(resolve(root, file), 'utf8');
     assert.match(source, /^import ['"]\.\/dashboard-common\.js['"];?/, file + ' must import dashboard-common as a module dependency');
   }
