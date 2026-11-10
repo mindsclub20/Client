@@ -24,7 +24,14 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase.auth.signUp({
       email: input.email.trim(),
       password: input.password,
-      options: { data: { full_name: input.name.trim() } }
+      options: {
+        data: { full_name: input.name.trim() },
+        emailRedirectTo: (() => {
+          const callback = new URL("/auth/callback", request.url);
+          callback.searchParams.set("next", "/#portal");
+          return callback.toString();
+        })()
+      }
     });
 
     if (error) {
