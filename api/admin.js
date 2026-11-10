@@ -44,5 +44,64 @@ if(path==='projects'){if(!b?.id||!isProjectStatus(b?.status))return json({error:
 if(path==='pricing'){const id=text(b?.id,{max:80});if(!id)return json({error:'invalid_input'},400);const q=await pool.query('UPDATE public.maxweb_pricing_rules SET active=$2,updated_by=$3,updated_at=now() WHERE id=$1 RETURNING id,active',[id,b.active===true,c.user.id]);if(!q.rows[0])return json({error:'pricing_rule_not_found'},404);await audit(c.user.id,'pricing_rule.status_changed','pricing_rule',id,{active:q.rows[0].active});return json({rule:q.rows[0]});}
 if(['requests','support','leads'].includes(path)){const table={requests:'maxweb_service_requests',support:'maxweb_support_tickets',leads:'maxweb_public_leads'}[path];if(!b?.id||!statuses[path].includes(b?.status))return json({error:'invalid_input'},400);const q=await pool.query('UPDATE public.'+table+' SET status=$2 WHERE id=$1 RETURNING id,status',[b.id,b.status]);if(!q.rows[0])return json({error:'record_not_found'},404);await audit(c.user.id,path+'.status_changed',path,b.id,{status:b.status});return json({record:q.rows[0]});}
 return json({error:'route_not_found'},404);}
-async function dispatch(r){const path=pathOf(r),c=await gate(r,path);if(c.response)return c.response;try{if(r.method==='GET'){const d=await getData(path);return d?json(d):json({error:'route_not_found'},404);}if(r.method==='POST')return postData(r,path,c);if(r.method==='PATCH')return patchData(r,path,c);return json({error:'method_not_allowed'},405);}catch(e){console.error('admin workspace failed',e?.message);return json({error:'server_error'},500);}}
+async function acceptInvitation(r) {
+  const current = await requireUser(r);
+  if (current.response) return current.response;
+  const body = await r.json().catch(() => null);
+  if (typeof body?.token !== 'string' || body.token.length < 32 || body.token.length > 256) {
+    return json({ error: 'invalid_invitation_token' }, 400);
+  }
+  const tokenHash = createHash('sha256').update(body.token).digest('hex');
+  const db = await pool.connect();
+  try {
+    await db.query('BEGIN');
+    const found = await db.query(
+      'SELECT id,email,expires_at,accepted_at FROM public.maxweb_admin_invitations WHERE token_hash=$1 FOR UPDATE',
+      [tokenHash]
+    );
+    const invitation = found.rows[0];
+    const { canAcceptAdminInvitation } = await import('../lib/admin-provisioning.js');
+    if (!canAcceptAdminInvitation(invitation, current.user)) {
+      await db.query('ROLLBACK');
+      return json({ error: 'invitation_invalid_or_expired' }, 403);
+    }
+    await db.query(
+      `UPDATE public.maxweb_profiles
+       SET role = CASE WHEN role = 'super_admin' THEN role ELSE 'admin' END,
+           updated_at = now()
+       WHERE user_id = $1`,
+      [current.user.id]
+    );
+    await db.query(
+      'UPDATE public.maxweb_admin_invitations SET accepted_at=now() WHERE id=$1 AND accepted_at IS NULL',
+      [invitation.id]
+    );
+    await db.query(
+      `INSERT INTO public.maxweb_audit_logs(actor_user_id,action,entity_type,entity_id,details)
+       VALUES($1,'admin_invitation.accepted','admin_invitation',$2,$3::jsonb)`,
+      [current.user.id, invitation.id, JSON.stringify({ email: current.user.email })]
+    );
+    await db.query('COMMIT');
+    return json({ accepted: true });
+  } catch (error) {
+    await db.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    db.release();
+  }
+}
+
+async function bootstrapInitialAdmin(r) {
+  const current = await requireUser(r);
+  if (current.response) return current.response;
+  const { isInitialSuperAdminEmail } = await import('../lib/admin-provisioning.js');
+  if (!current.user.emailVerified || !isInitialSuperAdminEmail(current.user.email) ||
+      current.profile?.role !== 'super_admin') {
+    return json({ error: 'initial_admin_not_eligible' }, 403);
+  }
+  await audit(current.user.id, 'initial_super_admin.bootstrap_verified', 'admin', current.user.id);
+  return json({ ready: true, role: 'super_admin' });
+}
+
+async function dispatch(r){const path=pathOf(r);try{if(r.method==='POST'&&path==='bootstrap')return await bootstrapInitialAdmin(r);if(r.method==='POST'&&path==='invitations/accept')return await acceptInvitation(r);const c=await gate(r,path);if(c.response)return c.response;if(r.method==='GET'){const d=await getData(path);return d?json(d):json({error:'route_not_found'},404);}if(r.method==='POST')return postData(r,path,c);if(r.method==='PATCH')return patchData(r,path,c);return json({error:'method_not_allowed'},405);}catch(e){console.error('admin workspace failed',e?.message);return json({error:'server_error'},500);}}
 export const GET=dispatch;export const POST=dispatch;export const PATCH=dispatch;
