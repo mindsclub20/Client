@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { extractBearerToken, normalizeSupabaseUser } from '../lib/supabase-auth.js';
 
-test('accepts a well-formed bearer token', () => {
+test('accepts a well-formed bearer token', () => { // Supabase access tokens are passed only as Bearer credentials.
   assert.equal(extractBearerToken(new Request('https://maxweb.example/api/me', {
     headers: { authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature' },
   })), 'eyJhbGciOiJIUzI1NiJ9.payload.signature');
