@@ -24,11 +24,12 @@ test('normalizes Supabase identity without trusting client metadata for roles', 
     email: 'client@example.com',
     email_confirmed_at: '2026-11-10T00:00:00Z',
     user_metadata: { full_name: 'Client', role: 'super_admin' },
+    app_metadata: {},
   });
   assert.equal(user.id, '0c7d4f56-6e85-4d6d-9a9a-a6b3f2d81b10');
   assert.equal(user.name, 'Client');
   assert.equal(user.emailVerified, true);
-  assert.equal(user.role, undefined);
+  assert.equal(user.role, 'client');
 });
 
 test('rejects identities without a stable id or email', () => {
@@ -43,7 +44,7 @@ import { dirname, resolve } from 'node:path';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 test('dashboard pages load shared and page scripts as ordered ES modules', async () => {
-  const pages = ['admin.html', 'portal.html', 'accept-invite.html', 'setup-admin.html'];
+  const pages = ['admin.html', 'portal.html'];
   for (const page of pages) {
     const html = await readFile(resolve(root, page), 'utf8');
     assert.match(html, /<script type="module" src="\/js\/dashboard-common\.js"><\/script>/, page + ' must load dashboard-common as a module');
@@ -52,7 +53,7 @@ test('dashboard pages load shared and page scripts as ordered ES modules', async
 });
 
 test('fresh Neon migrations do not depend on the Better Auth user table', async () => {
-  for (const file of ['db-migration-001.sql', 'db-migration-002.sql', 'db-migration-003-first-two-admins.sql']) {
+  for (const file of ['db-migration-001.sql', 'db-migration-002.sql']) {
     const sql = await readFile(resolve(root, file), 'utf8');
     assert.doesNotMatch(sql, /REFERENCES\s+public\."user"/i, file + ' must not create cross-provider account foreign keys');
   }
@@ -69,52 +70,20 @@ test('admin and portal modules wait for the shared auth client before using dash
   }
 });
 
-import { isInitialSuperAdminEmail } from '../lib/admin-provisioning.js';
 
-test('only the configured initial Super Admin email is eligible for bootstrap', () => {
-  assert.equal(isInitialSuperAdminEmail('maxweb.w@gmail.com'), true);
-  assert.equal(isInitialSuperAdminEmail('MAXWEB.W@GMAIL.COM'), true);
-  assert.equal(isInitialSuperAdminEmail('another@example.com'), false);
-  assert.equal(isInitialSuperAdminEmail(''), false);
-  assert.equal(isInitialSuperAdminEmail(null), false);
+test('only server-managed Supabase app_metadata can assign an admin role', async () => {
+  const { normalizeSupabaseUser } = await import('../lib/supabase-auth.js');
+  const base = { id: '0c7d4f56-6e85-4d6d-9a9a-a6b3f2d81b10', email: 'admin@example.com', email_confirmed_at: '2026-11-10T00:00:00Z' };
+  assert.equal(normalizeSupabaseUser({ ...base, user_metadata: { role: 'super_admin' } }).role, 'client');
+  assert.equal(normalizeSupabaseUser({ ...base, app_metadata: { role: 'admin' } }).role, 'admin');
+  assert.equal(normalizeSupabaseUser({ ...base, app_metadata: { role: 'super_admin' } }).role, 'super_admin');
+  assert.equal(normalizeSupabaseUser({ ...base, app_metadata: { role: 'owner' } }).role, 'client');
 });
 
-import { hashInvitationToken, canAcceptAdminInvitation } from '../lib/admin-provisioning.js';
-
-test('invitation tokens are hashed before database lookup', () => {
-  assert.match(hashInvitationToken('a'.repeat(43)), /^[a-f0-9]{64}$/);
-  assert.equal(hashInvitationToken('short'), null);
-  assert.equal(hashInvitationToken(null), null);
-});
-
-test('admin invitation acceptance requires matching email, an unused token, and a future expiry', () => {
-  const invitation = { email: 'Admin@Example.com', accepted_at: null, expires_at: '2026-11-11T00:00:00Z' };
-  const user = { email: 'admin@example.com', emailVerified: true };
-  assert.equal(canAcceptAdminInvitation(invitation, user, new Date('2026-11-10T00:00:00Z')), true);
-  assert.equal(canAcceptAdminInvitation(invitation, { ...user, email: 'other@example.com' }, new Date('2026-11-10T00:00:00Z')), false);
-  assert.equal(canAcceptAdminInvitation({ ...invitation, accepted_at: '2026-11-09T00:00:00Z' }, user, new Date('2026-11-10T00:00:00Z')), false);
-  assert.equal(canAcceptAdminInvitation({ ...invitation, expires_at: '2026-11-09T00:00:00Z' }, user, new Date('2026-11-10T00:00:00Z')), false);
-  assert.equal(canAcceptAdminInvitation(invitation, { ...user, emailVerified: false }, new Date('2026-11-10T00:00:00Z')), false);
-});
-
-test('admin API exposes guarded bootstrap and single-use invitation acceptance routes', async () => {
-  const source = await readFile(resolve(root, 'api/admin.js'), 'utf8');
-  assert.match(source, /path==='bootstrap'\)return await bootstrapInitialAdmin/);
-  assert.match(source, /path==='invitations\/accept'\)return await acceptInvitation/);
-  assert.match(source, /WHERE token_hash=\$1 FOR UPDATE/);
-  assert.match(source, /invitation_invalid_or_expired/);
-  assert.match(source, /current\.user\.emailVerified/);
-});
-
-test('initial admin setup does not rely on an unsupported setup token form', async () => {
-  const html = await readFile(resolve(root, 'setup-admin.html'), 'utf8');
-  const script = await readFile(resolve(root, 'js/setup-admin.js'), 'utf8');
-  assert.match(html, /id="message"/);
-  assert.doesNotMatch(html, /name="token"/);
-  assert.match(script, /\/api\/admin\/bootstrap/);
-});
-
-test('invitation acceptance frontend calls the implemented admin route', async () => {
-  const source = await readFile(resolve(root, 'js/accept-invite.js'), 'utf8');
-  assert.match(source, /\/api\/admin\/invitations\/accept/);
+test('admin provisioning is managed outside MAXWEB; no in-app invitation or bootstrap routes remain', async () => {
+  const api = await readFile(resolve(root, 'api/admin.js'), 'utf8');
+  const html = await readFile(resolve(root, 'admin.html'), 'utf8');
+  const ui = await readFile(resolve(root, 'js/admin.js'), 'utf8');
+  assert.doesNotMatch(api, /bootstrap|invitations\/accept|admin_invitation/);
+  assert.doesNotMatch(html + ui, /Invite administrator|Team access|api\/admin\/invitations/);
 });
