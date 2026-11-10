@@ -28,9 +28,9 @@ Set these in Vercel Project Settings → Environment Variables:
 | DATABASE_URL | Neon connection string for the environment being deployed |
 | MAXWEB_AI_API_KEY | Server-side AI provider key |
 | MAXWEB_AI_MODEL | AI model identifier |
-| MAXWEB_AI_BASE_URL | Optional OpenAI-compatible API base URL |
+| MAXWEB_AI_BASE_URL | Gemini OpenAI-compatible endpoint; defaults to Google Gemini |\n| XAI_API_KEY | Optional server-side Grok fallback key |\n| XAI_MODEL | Grok model identifier (for example, grok-4.7) |\n| XAI_BASE_URL | xAI OpenAI-compatible endpoint; defaults to https://api.x.ai/v1 |
 
-Do not add SUPABASE_SECRET_KEY to browser code or Vercel production. It is required only for the one-time local account migration script. Never commit secrets or send them in chat.
+The assistant tries Gemini first using MAXWEB_AI_* and falls back to Grok when XAI_* is configured. Firecrawl is not required for authentication or AI chat and is not yet wired into this branch. Do not add SUPABASE_SECRET_KEY to browser code or Vercel production. It is required only for the one-time local account migration script. Never commit secrets or send them in chat.
 
 Remove the obsolete BETTER_AUTH_SECRET and BETTER_AUTH_URL values after the cutover is complete. The old Better Auth verification/reset path is no longer used by the login UI.
 
