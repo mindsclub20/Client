@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { pool } from '../lib/db.js';
-import { auth } from '../lib/auth.js';
+import { getSupabaseUser } from '../lib/supabase-auth.js';
 import { sameOrigin, json } from '../lib/access.js';
 import { text } from '../lib/validation.js';
 import { normalizeSalesResponse, requestSalesAssistant } from '../lib/ai.js';
@@ -43,8 +43,8 @@ export async function POST(request) {
     const message = text(body?.message, { max: 2000 });
     if (!message) return json({ error: 'invalid_message' }, 400);
     const source = SOURCES.has(body?.source) ? body.source : 'website';
-    const session = await auth.api.getSession({ headers: request.headers });
-    const userId = session?.user?.id || null;
+    const user = await getSupabaseUser(request);
+    const userId = user?.id || null;
     let conversation;
     if (body?.conversationId) {
       if (typeof body.conversationId !== 'string' || !UUID.test(body.conversationId)) {
