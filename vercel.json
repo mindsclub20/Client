@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "mkdir -p public && unzip -o MAXWEB.zip 'index.html' 'css/*' 'js/script.js' 'images/*' -d public && next build"
+  "buildCommand": "mkdir -p public && unzip -o MAXWEB.zip 'index.html' 'css/*' 'js/script.js' 'images/*' -d public && mv public/index.html public/site-source.html && next build"
 }
