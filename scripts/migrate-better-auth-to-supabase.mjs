@@ -93,6 +93,23 @@ async function main() {
     }
     if (plan.some(x => !x.newId)) throw new Error('Some Supabase identities could not be resolved.');
 
+    const businessTables = [
+      'maxweb_admin_invitations','maxweb_admin_slots','maxweb_ai_conversations',
+      'maxweb_ai_rate_limits','maxweb_audit_logs','maxweb_demos','maxweb_invoices',
+      'maxweb_payments','maxweb_pricing_rules','maxweb_project_files',
+      'maxweb_project_milestones','maxweb_project_updates','maxweb_projects',
+      'maxweb_public_leads','maxweb_quotations','maxweb_service_requests',
+      'maxweb_support_tickets',
+    ];
+    const countsBefore = new Map();
+    for (const tableName of businessTables) {
+      const exists = await client.query('SELECT to_regclass($1) IS NOT NULL AS present', ['public.' + tableName]);
+      if (exists.rows[0].present) {
+        const count = await client.query('SELECT count(*)::int AS count FROM public.' + ident(tableName));
+        countsBefore.set(tableName, count.rows[0].count);
+      }
+    }
+
     await client.query('BEGIN');
     try {
       await client.query('ALTER TABLE public.maxweb_profiles ADD COLUMN IF NOT EXISTS email text');
@@ -146,9 +163,15 @@ async function main() {
       await client.query('DROP TABLE public."user"');
       await client.query(
         `CREATE VIEW public."user" AS
-         SELECT user_id AS id,COALESCE(full_name,'') AS name,email
+         SELECT DISTINCT user_id AS id,COALESCE(full_name,'') AS name,email
          FROM public.maxweb_profiles`
       );
+      for (const [tableName, expected] of countsBefore) {
+        const actual = await client.query('SELECT count(*)::int AS count FROM public.' + ident(tableName));
+        if (actual.rows[0].count !== expected) {
+          throw new Error('Business row-count verification failed for ' + tableName + '; transaction rolled back.');
+        }
+      }
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
