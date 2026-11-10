@@ -1,6 +1,6 @@
 # MAXWEB
 
-MAXWEB now uses a native Next.js App Router architecture on Vercel. The existing website design and public assets are preserved from the original archive; the archive is unpacked only for static frontend assets, while authentication and session endpoints are compiled as Next.js server routes.
+MAXWEB now uses a native Next.js App Router architecture on Vercel. The Vercel project framework preset is set to Next.js so App Router pages and route handlers are deployed as serverless functions. The existing website design and public assets are preserved from the original archive; the archive is unpacked only for static frontend assets, while authentication and session endpoints are compiled as Next.js server routes.
 
 ## Architecture
 - Next.js 15 App Router + TypeScript.
