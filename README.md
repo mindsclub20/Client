@@ -1,6 +1,6 @@
 # MAXWEB
 
-MAXWEB now uses a native Next.js App Router architecture on Vercel. The Vercel project framework preset is set to Next.js so App Router pages and route handlers are deployed as serverless functions. The existing website design and public assets are preserved from the original archive; the archive is unpacked only for static frontend assets, while authentication and session endpoints are compiled as Next.js server routes.
+MAXWEB uses a native Next.js App Router architecture on Vercel.
 
 ## Architecture
 - Next.js 15 App Router + TypeScript.
@@ -8,7 +8,10 @@ MAXWEB now uses a native Next.js App Router architecture on Vercel. The Vercel p
 - Supabase Auth with `@supabase/ssr` cookie-based sessions.
 - `GET /api/me` verifies the user on the server with `auth.getUser()`.
 - Auth endpoints: `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email`, `POST /api/auth/sign-out`.
-- Email confirmation endpoint: `GET /auth/confirm` verifies Supabase's token hash with `verifyOtp` and writes the cookie-backed session. Configure the Supabase **Confirm signup** email template to use `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`. The signup route sets `emailRedirectTo` to `/auth/confirm`. Keep the redirect allow-list updated for the production and preview URLs you use.
+- Email confirmation follows the same PKCE callback flow used by Skilldrem: Supabase's standard Confirm signup email template sends the user through Supabase Auth, which redirects to `/auth/callback?code=...`; the route exchanges the code for a cookie-backed session.
+- `GET /client.html` is a compatibility callback for old confirmation emails created by the retired `maxweb-one.vercel.app` site. It exchanges the same PKCE code and redirects to the portal.
+- The current production origin is `https://maxweb-new.vercel.app`. The signup API derives the callback origin from the incoming request, so production and preview deployments use their own host.
+- Keep the Supabase redirect allow-list updated for the production and preview URLs you use. The standard Confirm signup template can remain unchanged; no token-hash template customization is required for this flow.
 - Supabase Postgres remains available for future business data. No application tables are created by this migration.
 
 ## Vercel environment variables
@@ -18,7 +21,7 @@ MAXWEB now uses a native Next.js App Router architecture on Vercel. The Vercel p
 Do not expose a service-role/secret key in browser code or a `NEXT_PUBLIC_` variable. The existing Vercel variable names are supported.
 
 ## Local development
-The Vercel build extracts only the original `index.html` as `public/site-source.html`, plus CSS, the existing site behavior script, and images from `MAXWEB.zip` into `public/`. It then builds the Next.js application and API routes.
+The Vercel build extracts the original site assets from `MAXWEB.zip` into `public/`, then builds the Next.js application and API routes.
 
 ```bash
 npm install
@@ -26,5 +29,3 @@ npm run dev
 npm test
 npm run build
 ```
-
-Signup respects the Supabase project's email-confirmation setting. If confirmation is enabled, the client is told to check email before logging in. In Supabase Dashboard → Authentication → Email Templates → Confirm signup, set the message link to:\n\n`{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`\n\nThe confirmation endpoint accepts only the email verification type, verifies the token hash once, and redirects to the portal. The old `/auth/callback` route remains for legacy confirmation links.
