@@ -8,7 +8,7 @@ MAXWEB now uses a native Next.js App Router architecture on Vercel. The Vercel p
 - Supabase Auth with `@supabase/ssr` cookie-based sessions.
 - `GET /api/me` verifies the user on the server with `auth.getUser()`.
 - Auth endpoints: `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email`, `POST /api/auth/sign-out`.
-- Email confirmation callback: `GET /auth/callback` exchanges Supabase's one-time code for a cookie-backed session and validates the post-confirmation redirect.
+- Email confirmation endpoint: `GET /auth/confirm` verifies Supabase's token hash with `verifyOtp` and writes the cookie-backed session. Configure the Supabase **Confirm signup** email template to use `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`. The signup route sets `emailRedirectTo` to `/auth/confirm`. Keep the redirect allow-list updated for the production and preview URLs you use.
 - Supabase Postgres remains available for future business data. No application tables are created by this migration.
 
 ## Vercel environment variables
@@ -27,4 +27,4 @@ npm test
 npm run build
 ```
 
-Signup respects the Supabase project's email-confirmation setting. If confirmation is enabled, the client is told to check email before logging in.
+Signup respects the Supabase project's email-confirmation setting. If confirmation is enabled, the client is told to check email before logging in. In Supabase Dashboard → Authentication → Email Templates → Confirm signup, set the message link to:\n\n`{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email`\n\nThe confirmation endpoint accepts only the email verification type, verifies the token hash once, and redirects to the portal. The old `/auth/callback` route remains for legacy confirmation links.
