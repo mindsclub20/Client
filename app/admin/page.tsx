@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentAdminContext } from "@/lib/admin-auth";
+import AdminLogoutButton from "./admin-logout-button";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +19,10 @@ export default async function AdminPage() {
             <p style={{ color: "#8ba4d8", letterSpacing: 2, fontSize: 12, margin: 0 }}>MAXWEB CONTROL PANEL</p>
             <h1 style={{ fontSize: 32, margin: "10px 0 0" }}>Admin dashboard</h1>
           </div>
-          <a href="/" style={{ color: "#a9c4ff" }}>View website</a>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <a href="/" style={{ color: "#a9c4ff" }}>View website</a>
+            <AdminLogoutButton />
+          </div>
         </header>
         <section style={{ marginTop: 32, border: "1px solid #27314b", borderRadius: 16, padding: 24, background: "#10182b" }}>
           <p style={{ color: "#8ba4d8", marginTop: 0 }}>Authenticated administrator</p>
