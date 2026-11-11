@@ -75,7 +75,7 @@
     var signup = mode === "signup";
     var name = $("an").value.trim(), email = $("ae").value.trim(), password = $("ap").value;
     if (signup && !name) return setErr("Enter your full name.");
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) return setErr("Enter a valid email address.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setErr("Enter a valid email address.");
     if (password.length < 8) return setErr("Use a password of at least 8 characters.");
     setBusy(true);
     var req = signup ? api("/sign-up/email", { name: name, email: email, password: password }) : api("/sign-in/email", { email: email, password: password });
