@@ -11,7 +11,8 @@ export async function GET() {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401, headers: { "cache-control": "no-store" } });
     }
     const name = typeof user.user_metadata?.full_name === "string" ? user.user_metadata.full_name : null;
-    return NextResponse.json({ user: { id: user.id, name, email: user.email }, expiresAt: null }, { headers: { "cache-control": "no-store" } });
+    const role = user.app_metadata?.role === "admin" ? "admin" : "client";
+    return NextResponse.json({ user: { id: user.id, name, email: user.email, role }, expiresAt: null }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     console.error("session check failed", error instanceof Error ? error.message : "unknown error");
     return NextResponse.json({ error: "server_error" }, { status: 500, headers: { "cache-control": "no-store" } });
