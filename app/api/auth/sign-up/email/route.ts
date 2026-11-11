@@ -27,9 +27,7 @@ export async function POST(request: NextRequest) {
       options: {
         data: { full_name: input.name.trim() },
         emailRedirectTo: (() => {
-          const callback = new URL("/auth/callback", request.url);
-          callback.searchParams.set("next", "/#portal");
-          return callback.toString();
+          return new URL("/auth/confirm", request.url).toString();
         })()
       }
     });
