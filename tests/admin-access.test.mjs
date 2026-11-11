@@ -29,3 +29,12 @@ test("admin login and portal navigation route admins to the protected dashboard"
   assert.ok(source.includes('window.location.replace("/admin")'));
   assert.ok(source.includes('user.role === "admin" ? "/admin" : "#portal"'));
 });
+
+
+test("admin dashboard exposes a logout control wired to the server sign-out endpoint", async () => {
+  const page = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
+  const control = await readFile(new URL("../app/admin/admin-logout-button.tsx", import.meta.url), "utf8");
+  assert.ok(page.includes("AdminLogoutButton"));
+  assert.ok(control.includes('fetch("/api/auth/sign-out"'));
+  assert.ok(control.includes('window.location.replace("/#login")'));
+});
