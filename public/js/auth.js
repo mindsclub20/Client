@@ -46,13 +46,19 @@
 
   function route() {
     var h = window.location.hash, screen = "site";
+    // The server-protected /admin route is the source of truth; this is only
+    // a convenience redirect so administrators do not land in the client UI.
+    if (user && user.role === "admin" && (h === "#login" || h === "#portal")) {
+      window.location.replace("/admin");
+      return;
+    }
     if (h === "#login" || h === "#portal") screen = user ? "portal" : "login";
     $("site").hidden = screen !== "site";
     $("login").hidden = screen !== "login";
     $("portal").hidden = screen !== "portal";
     if (screen !== "site") window.scrollTo(0, 0);
     var a = document.querySelector(".nav .btn.ghost");
-    if (a) { a.textContent = user ? "My portal" : "Log in"; a.setAttribute("href", user ? "#portal" : "#login"); }
+    if (a) { a.textContent = user ? (user.role === "admin" ? "Admin dashboard" : "My portal") : "Log in"; a.setAttribute("href", user ? (user.role === "admin" ? "/admin" : "#portal") : "#login"); }
     if (user) {
       $("who").textContent = user.name || user.email;
       var wa = $("pwa");
