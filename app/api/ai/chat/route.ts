@@ -10,6 +10,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+const MAX_MESSAGE_LENGTH = 4_000;
 
 function statusForCode(code: string): number {
   switch (code) {
@@ -60,6 +61,12 @@ export async function POST(request: Request) {
     if (!message) {
       return NextResponse.json({ error: "message_required" }, { status: 400 });
     }
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      return NextResponse.json(
+        { error: "message_too_long", maxLength: MAX_MESSAGE_LENGTH },
+        { status: 413 }
+      );
+    }
 
     if (!conversationId) {
       const { data: created, error: createError } = await supabase
@@ -96,18 +103,26 @@ export async function POST(request: Request) {
 
     // Persist the user turn before calling providers so a later failure still
     // keeps the conversation history. Never write a fake assistant reply on failure.
-    await supabase.from("ai_messages").insert({
+    const { error: userMessageError } = await supabase.from("ai_messages").insert({
       conversation_id: conversationId,
       role: "user",
       content: message,
     });
+    if (userMessageError) {
+      console.error("persist user message failed", { conversationId, code: userMessageError.code });
+      return NextResponse.json({ error: "message_persist_failed", conversationId }, { status: 500 });
+    }
 
-    const { data: history } = await supabase
+    const { data: history, error: historyError } = await supabase
       .from("ai_messages")
       .select("role, content")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true })
       .limit(20);
+    if (historyError) {
+      console.error("load conversation history failed", { conversationId, code: historyError.code });
+      return NextResponse.json({ error: "history_load_failed", conversationId }, { status: 500 });
+    }
 
     const messages: ChatMessage[] = [
       { role: "system", content: BARGAIN_SYSTEM_PROMPT },
@@ -119,7 +134,7 @@ export async function POST(request: Request) {
 
     const result = await grokChat(messages);
 
-    await supabase.from("ai_messages").insert({
+    const { error: assistantMessageError } = await supabase.from("ai_messages").insert({
       conversation_id: conversationId,
       role: "assistant",
       content: result.content,
@@ -129,6 +144,10 @@ export async function POST(request: Request) {
         provider: result.provider,
       },
     });
+    if (assistantMessageError) {
+      console.error("persist assistant message failed", { conversationId, code: assistantMessageError.code });
+      return NextResponse.json({ error: "reply_persist_failed", conversationId }, { status: 500 });
+    }
 
     const priceMatch =
       result.content.match(/(?:₹|Rs\.?|INR)\s*([0-9]{4,6})/i) ||
