@@ -2,17 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-test("MAXWEB keeps the xAI key separate from the Gemini fallback key", async () => {
+test("MAXWEB keeps xAI and Gemini credentials in separate provider paths", async () => {
   const source = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
-  assert.match(source, /process\.env\.MAXWEB_AI_API_KEY\b/);
-  assert.doesNotMatch(source, /process\.env\.MAXWEB_AI_API_KEY2/);
-  assert.match(source, /process\.env\.MAXWEB_AI_API_KEY2/);
+  assert.match(source, /const xaiKey = process\.env\.MAXWEB_AI_API_KEY/);
+  assert.match(source, /const geminiKey = process\.env\.MAXWEB_AI_API_KEY2/);
+  assert.match(source, /callXai\(xaiKey/);
+  assert.match(source, /callGemini\(geminiKey/);
 });
 
-test("MAXWEB sends the secondary key to Gemini GenerateContent, not xAI", async () => {
+test("MAXWEB sends the secondary key to Gemini GenerateContent", async () => {
   const source = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
   assert.match(source, /generativelanguage\.googleapis\.com\/v1beta\/models/);
-  assert.match(source, /x-goog-api-key/);
+  assert.match(source, /"x-goog-api-key": apiKey/);
   assert.match(source, /candidates/);
   assert.match(source, /MAXWEB_GEMINI_MODEL/);
 });
@@ -31,7 +32,7 @@ test("MAXWEB records safe provider rejection details without logging credentials
   assert.match(source, /await response\.text\(\)/);
   assert.match(source, /xAI Responses request rejected/);
   assert.match(source, /Gemini GenerateContent request rejected/);
-  assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*(?:apiKeys|Authorization|x-goog-api-key)/);
+  assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*(?:apiKey|Authorization|x-goog-api-key)/);
 });
 
 test("client only shows missing-key guidance for the explicit configuration error code", async () => {
