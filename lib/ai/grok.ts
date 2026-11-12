@@ -1,40 +1,74 @@
 /**
  * Server-only MAXWEB AI provider helper.
- * MAXWEB_AI_API_KEY is the Z.ai GLM primary key.
- * MAXWEB_AI_API_KEY2 is the Google Gemini fallback key.
+ * MAXWEB_AI_API_KEY  → Z.ai GLM primary
+ * MAXWEB_AI_API_KEY2 → Google Gemini fallback
  *
- * Keep this module server-only: provider credentials must never reach the browser.
+ * Credentials must never reach the browser, API responses, or logs.
  */
 
 const GLM_CHAT_COMPLETIONS_URL =
   "https://api.z.ai/api/paas/v4/chat/completions";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
+/** Official Z.AI default in docs is glm-5.3; flash is allowed via env. */
 export const DEFAULT_GLM_MODEL = "glm-5.3-flash";
-export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
+/** Widely supported flash model; override with MAXWEB_GEMINI_MODEL. */
+export const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+
+const GLM_TIMEOUT_MS = 25_000;
+const GEMINI_TIMEOUT_MS = 20_000;
+const GEMINI_MAX_ATTEMPTS = 3;
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
-type ProviderResult = {
+export type ProviderResult = {
   content: string;
   usage: unknown;
   model: string;
   id: string | null;
+  provider: "glm" | "gemini";
 };
 
-function getConfiguredKeys() {
-  const glmKey = process.env.MAXWEB_AI_API_KEY?.trim();
-  const geminiKey = process.env.MAXWEB_AI_API_KEY2?.trim();
+export type ProviderErrorCode =
+  | "ai_not_configured"
+  | "glm_auth_failed"
+  | "gemini_auth_failed"
+  | "provider_rate_limit"
+  | "provider_unavailable"
+  | "provider_timeout"
+  | "providers_unavailable"
+  | "provider_error";
 
-  if (!glmKey && !geminiKey) {
-    throw new Error(
-      "MAXWEB AI is not configured. Add a GLM or Gemini API key to the server environment."
-    );
+export class ProviderError extends Error {
+  code: ProviderErrorCode;
+  provider: "glm" | "gemini" | "both" | "none";
+  httpStatus?: number;
+  retryable: boolean;
+
+  constructor(
+    code: ProviderErrorCode,
+    message: string,
+    opts?: {
+      provider?: "glm" | "gemini" | "both" | "none";
+      httpStatus?: number;
+      retryable?: boolean;
+    }
+  ) {
+    super(message);
+    this.name = "ProviderError";
+    this.code = code;
+    this.provider = opts?.provider ?? "none";
+    this.httpStatus = opts?.httpStatus;
+    this.retryable = opts?.retryable ?? false;
   }
+}
 
+function getConfiguredKeys() {
+  const glmKey = process.env.MAXWEB_AI_API_KEY?.trim() || "";
+  const geminiKey = process.env.MAXWEB_AI_API_KEY2?.trim() || "";
   return { glmKey, geminiKey };
 }
 
@@ -43,8 +77,7 @@ function parseProviderError(rawBody: string): {
   status?: string;
   message: string;
 } {
-  if (!rawBody) return { message: "The provider returned an empty error response." };
-
+  if (!rawBody) return { message: "empty error body" };
   try {
     const payload = JSON.parse(rawBody);
     const providerError = payload?.error ?? payload;
@@ -61,19 +94,74 @@ function parseProviderError(rawBody: string): {
       message:
         typeof providerError?.message === "string"
           ? providerError.message
-          : rawBody,
+          : rawBody.slice(0, 500),
     };
   } catch {
-    return { message: rawBody };
+    return { message: rawBody.slice(0, 500) };
   }
 }
 
+function classifyHttpError(
+  provider: "glm" | "gemini",
+  status: number,
+  detail: string
+): ProviderError {
+  if (status === 401 || status === 403) {
+    return new ProviderError(
+      provider === "glm" ? "glm_auth_failed" : "gemini_auth_failed",
+      provider === "glm"
+        ? "GLM authentication failed. Check MAXWEB_AI_API_KEY in Vercel."
+        : "Gemini authentication failed. Check MAXWEB_AI_API_KEY2 in Vercel.",
+      { provider, httpStatus: status, retryable: false }
+    );
+  }
+  if (status === 429) {
+    return new ProviderError(
+      "provider_rate_limit",
+      `${provider.toUpperCase()} rate limit reached. Please try again shortly.`,
+      { provider, httpStatus: status, retryable: true }
+    );
+  }
+  if (status === 503 || status === 502 || status === 504) {
+    return new ProviderError(
+      "provider_unavailable",
+      `${provider.toUpperCase()} is temporarily unavailable.`,
+      { provider, httpStatus: status, retryable: true }
+    );
+  }
+  if (status === 400) {
+    return new ProviderError("provider_error", detail || "Bad request to provider.", {
+      provider,
+      httpStatus: status,
+      retryable: false,
+    });
+  }
+  return new ProviderError(
+    "provider_error",
+    `${provider.toUpperCase()} request failed (HTTP ${status}).`,
+    { provider, httpStatus: status, retryable: status >= 500 }
+  );
+}
+
+function isAbortError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const name = (error as { name?: string }).name;
+  return name === "TimeoutError" || name === "AbortError";
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function backoffMs(attempt: number): number {
+  const base = 400 * Math.pow(2, attempt);
+  const jitter = Math.floor(Math.random() * 200);
+  return Math.min(4_000, base + jitter);
+}
+
 function extractGlmText(data: any): string {
-  const message = data?.choices?.[0]?.message;
-  const content = message?.content;
-
+  const content = data?.choices?.[0]?.message?.content;
   if (typeof content === "string") return content.trim();
-
   if (Array.isArray(content)) {
     return content
       .filter((part: any) => typeof part?.text === "string")
@@ -81,7 +169,6 @@ function extractGlmText(data: any): string {
       .join("\n")
       .trim();
   }
-
   return "";
 }
 
@@ -89,7 +176,6 @@ function extractGeminiText(data: any): string {
   const parts = Array.isArray(data?.candidates?.[0]?.content?.parts)
     ? data.candidates[0].content.parts
     : [];
-
   return parts
     .filter((part: any) => typeof part?.text === "string")
     .map((part: any) => part.text)
@@ -102,28 +188,41 @@ async function callGlm(
   messages: ChatMessage[],
   options?: { temperature?: number }
 ): Promise<ProviderResult> {
-  const model =
-    process.env.MAXWEB_GLM_MODEL?.trim() ||
-    DEFAULT_GLM_MODEL;
-  const temperature = Math.min(
-    1,
-    Math.max(0, options?.temperature ?? 0.7)
-  );
+  const model = process.env.MAXWEB_GLM_MODEL?.trim() || DEFAULT_GLM_MODEL;
+  const temperature = Math.min(1, Math.max(0, options?.temperature ?? 0.7));
 
-  const response = await fetch(GLM_CHAT_COMPLETIONS_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature,
-      stream: false,
-    }),
-    signal: AbortSignal.timeout(60_000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(GLM_CHAT_COMPLETIONS_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "Accept-Language": "en-US,en",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(GLM_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new ProviderError(
+        "provider_timeout",
+        "GLM request timed out.",
+        { provider: "glm", retryable: true }
+      );
+    }
+    throw new ProviderError(
+      "provider_unavailable",
+      "GLM network error.",
+      { provider: "glm", retryable: true }
+    );
+  }
 
   if (!response.ok) {
     const rawBody = await response.text();
@@ -139,9 +238,10 @@ async function callGlm(
       code: providerError.code,
       providerStatus: providerError.status,
       message: providerError.message.slice(0, 500),
+      model,
     });
 
-    throw new Error(`GLM request failed (HTTP ${response.status}).`);
+    throw classifyHttpError("glm", response.status, providerError.message);
   }
 
   const data = await response.json();
@@ -151,7 +251,10 @@ async function callGlm(
       model,
       finishReason: data?.choices?.[0]?.finish_reason,
     });
-    throw new Error("GLM returned an empty response.");
+    throw new ProviderError("provider_error", "GLM returned an empty response.", {
+      provider: "glm",
+      retryable: false,
+    });
   }
 
   return {
@@ -159,17 +262,16 @@ async function callGlm(
     usage: data?.usage ?? null,
     model: data?.model ?? model,
     id: typeof data?.id === "string" ? data.id : null,
+    provider: "glm",
   };
 }
 
-async function callGemini(
+async function callGeminiOnce(
   apiKey: string,
   messages: ChatMessage[],
   options?: { temperature?: number }
 ): Promise<ProviderResult> {
-  const model =
-    process.env.MAXWEB_GEMINI_MODEL?.trim() ||
-    DEFAULT_GEMINI_MODEL;
+  const model = process.env.MAXWEB_GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
   const systemText = messages
     .filter((message) => message.role === "system")
     .map((message) => message.content)
@@ -182,32 +284,49 @@ async function callGemini(
     }));
 
   if (contents.length === 0) {
-    throw new Error("Gemini requires at least one user or assistant message.");
+    throw new ProviderError(
+      "provider_error",
+      "Gemini requires at least one user or assistant message.",
+      { provider: "gemini", retryable: false }
+    );
   }
 
-  const response = await fetch(
-    `${GEMINI_BASE}/models/${model}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        ...(systemText
-          ? { systemInstruction: { parts: [{ text: systemText }] } }
-          : {}),
-        contents,
-        generationConfig: {
-          temperature: Math.min(
-            1,
-            Math.max(0, options?.temperature ?? 0.7)
-          ),
+  let response: Response;
+  try {
+    response = await fetch(
+      `${GEMINI_BASE}/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
         },
-      }),
-      signal: AbortSignal.timeout(60_000),
+        body: JSON.stringify({
+          ...(systemText
+            ? { systemInstruction: { parts: [{ text: systemText }] } }
+            : {}),
+          contents,
+          generationConfig: {
+            temperature: Math.min(1, Math.max(0, options?.temperature ?? 0.7)),
+          },
+        }),
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
+      }
+    );
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new ProviderError(
+        "provider_timeout",
+        "Gemini request timed out.",
+        { provider: "gemini", retryable: true }
+      );
     }
-  );
+    throw new ProviderError(
+      "provider_unavailable",
+      "Gemini network error.",
+      { provider: "gemini", retryable: true }
+    );
+  }
 
   if (!response.ok) {
     const rawBody = await response.text();
@@ -219,9 +338,10 @@ async function callGemini(
       code: providerError.code,
       providerStatus: providerError.status,
       message: providerError.message.slice(0, 500),
+      model,
     });
 
-    throw new Error(`Gemini request failed (HTTP ${response.status}).`);
+    throw classifyHttpError("gemini", response.status, providerError.message);
   }
 
   const data = await response.json();
@@ -231,7 +351,11 @@ async function callGemini(
       model,
       finishReason: data?.candidates?.[0]?.finishReason,
     });
-    throw new Error("Gemini returned an empty response.");
+    throw new ProviderError(
+      "provider_error",
+      "Gemini returned an empty response.",
+      { provider: "gemini", retryable: false }
+    );
   }
 
   return {
@@ -239,27 +363,103 @@ async function callGemini(
     usage: data?.usageMetadata ?? null,
     model: data?.modelVersion ?? model,
     id: null,
+    provider: "gemini",
   };
 }
 
+async function callGemini(
+  apiKey: string,
+  messages: ChatMessage[],
+  options?: { temperature?: number }
+): Promise<ProviderResult> {
+  let lastError: ProviderError | undefined;
+
+  for (let attempt = 0; attempt < GEMINI_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await callGeminiOnce(apiKey, messages, options);
+    } catch (error) {
+      const pe =
+        error instanceof ProviderError
+          ? error
+          : new ProviderError("provider_error", "Gemini failed.", {
+              provider: "gemini",
+              retryable: false,
+            });
+      lastError = pe;
+
+      // Never retry auth / client errors
+      if (
+        !pe.retryable ||
+        pe.code === "gemini_auth_failed" ||
+        pe.httpStatus === 400 ||
+        pe.httpStatus === 401 ||
+        pe.httpStatus === 403
+      ) {
+        throw pe;
+      }
+
+      if (attempt < GEMINI_MAX_ATTEMPTS - 1) {
+        const wait = backoffMs(attempt);
+        console.warn("Gemini transient failure; retrying", {
+          attempt: attempt + 1,
+          code: pe.code,
+          httpStatus: pe.httpStatus,
+          waitMs: wait,
+        });
+        await sleep(wait);
+        continue;
+      }
+      throw pe;
+    }
+  }
+
+  throw (
+    lastError ??
+    new ProviderError("provider_unavailable", "Gemini unavailable.", {
+      provider: "gemini",
+      retryable: true,
+    })
+  );
+}
+
 /**
- * The historical export name is retained because existing MAXWEB routes
- * import grokChat. Provider selection itself is GLM first, Gemini second.
+ * Historical export name kept for existing routes.
+ * Provider order: GLM (MAXWEB_AI_API_KEY) → Gemini (MAXWEB_AI_API_KEY2).
  */
 export async function grokChat(
   messages: ChatMessage[],
   options?: { model?: string; temperature?: number }
 ): Promise<ProviderResult> {
   const { glmKey, geminiKey } = getConfiguredKeys();
-  let glmError: unknown;
+
+  if (!glmKey && !geminiKey) {
+    throw new ProviderError(
+      "ai_not_configured",
+      "MAXWEB AI is not configured. Set MAXWEB_AI_API_KEY and/or MAXWEB_AI_API_KEY2.",
+      { provider: "none", retryable: false }
+    );
+  }
+
+  let glmError: ProviderError | undefined;
 
   if (glmKey) {
     try {
       return await callGlm(glmKey, messages, options);
     } catch (error) {
-      glmError = error;
-      if (!geminiKey) throw error;
-      console.warn("GLM primary failed; trying configured Gemini fallback.");
+      glmError =
+        error instanceof ProviderError
+          ? error
+          : new ProviderError("provider_error", "GLM failed.", {
+              provider: "glm",
+              retryable: false,
+            });
+
+      if (!geminiKey) throw glmError;
+
+      console.warn("GLM primary failed; trying Gemini fallback", {
+        code: glmError.code,
+        httpStatus: glmError.httpStatus,
+      });
     }
   }
 
@@ -267,18 +467,32 @@ export async function grokChat(
     try {
       return await callGemini(geminiKey, messages, options);
     } catch (geminiError) {
-      if (glmError instanceof Error && geminiError instanceof Error) {
-        throw new Error(
-          `AI providers unavailable. GLM: ${glmError.message} Gemini: ${geminiError.message}`
+      const ge =
+        geminiError instanceof ProviderError
+          ? geminiError
+          : new ProviderError("provider_error", "Gemini failed.", {
+              provider: "gemini",
+              retryable: false,
+            });
+
+      if (glmError) {
+        throw new ProviderError(
+          "providers_unavailable",
+          `AI providers unavailable. GLM: ${glmError.message} Gemini: ${ge.message}`,
+          { provider: "both", retryable: false }
         );
       }
-      throw geminiError;
+      throw ge;
     }
   }
 
-  throw glmError instanceof Error
-    ? glmError
-    : new Error("MAXWEB AI is not configured.");
+  throw (
+    glmError ??
+    new ProviderError("ai_not_configured", "MAXWEB AI is not configured.", {
+      provider: "none",
+      retryable: false,
+    })
+  );
 }
 
 export const BARGAIN_SYSTEM_PROMPT = `You are MAXWEB's expert website consultant and pricing negotiator.
