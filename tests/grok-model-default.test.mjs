@@ -27,3 +27,9 @@ test("MAXWEB preserves non-JSON xAI error bodies for diagnostics", async () => {
   assert.match(source, /contentType:\s*response\.headers\.get\(["']content-type["']\)/);
   assert.match(source, /rawBody\.slice\(0,\s*500\)/);
 });
+
+test("client only shows missing-key guidance for the explicit configuration error code", async () => {
+  const source = await readFile(new URL("../app/client/client-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(source, /data\?\.error\s*===\s*"ai_not_configured"/);
+  assert.doesNotMatch(source, /data\?\.message\?\.includes\(["']API key["']\)/);
+});
