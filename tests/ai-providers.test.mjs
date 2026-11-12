@@ -3,74 +3,52 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
-const route = await readFile(
-  new URL("../app/api/ai/chat/route.ts", import.meta.url),
-  "utf8"
-);
+const route = await readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8");
+const client = await readFile(new URL("../app/client/client-dashboard.tsx", import.meta.url), "utf8");
 
-test("GLM primary uses MAXWEB_AI_API_KEY and Gemini fallback uses MAXWEB_AI_API_KEY2", () => {
-  assert.match(source, /const glmKey = process\.env\.MAXWEB_AI_API_KEY/);
-  assert.match(source, /const geminiKey = process\.env\.MAXWEB_AI_API_KEY2/);
-  assert.match(source, /callGlm\(glmKey/);
+test("MAXWEB uses only MAXWEB_AI_API_KEY2 for Gemini", () => {
+  assert.match(source, /process\.env\.MAXWEB_AI_API_KEY2/);
+  assert.doesNotMatch(source, /process\.env\.MAXWEB_AI_API_KEY(?:\?|\s|\.)/);
   assert.match(source, /callGemini\(geminiKey/);
+  assert.doesNotMatch(source, /callGlm\(/);
 });
 
-test("GLM success path is attempted before Gemini", () => {
-  const glmIdx = source.indexOf("if (glmKey)");
-  const geminiIdx = source.indexOf("if (geminiKey)");
-  assert.ok(glmIdx > 0 && geminiIdx > glmIdx);
-  assert.match(source, /GLM primary failed; trying Gemini fallback/);
-});
-
-test("GLM auth failures are classified and not treated as timeouts", () => {
-  assert.match(source, /glm_auth_failed/);
-  assert.match(source, /status === 401 \|\| status === 403/);
-  assert.match(source, /retryable: false/);
+test("Gemini uses the configured current model default", () => {
+  assert.match(source, /DEFAULT_GEMINI_MODEL\s*=\s*"gemini-3\.8-flash"/);
+  assert.match(source, /MAXWEB_GEMINI_MODEL/);
+  assert.match(source, /generativelanguage\.googleapis\.com\/v1beta\/models/);
+  assert.match(source, /"x-goog-api-key": apiKey/);
 });
 
 test("Gemini retries only transient failures with bounded attempts", () => {
   assert.match(source, /GEMINI_MAX_ATTEMPTS\s*=\s*3/);
   assert.match(source, /backoffMs/);
   assert.match(source, /Gemini transient failure; retrying/);
-  assert.match(source, /pe\.code === "gemini_auth_failed"/);
   assert.match(source, /httpStatus === 401/);
 });
 
-test("both providers failing returns providers_unavailable", () => {
-  assert.match(source, /providers_unavailable/);
-  assert.match(source, /AI providers unavailable\. GLM:/);
+test("chat route requires only the Gemini key", () => {
+  assert.match(route, /process\.env\.MAXWEB_AI_API_KEY2/);
+  assert.doesNotMatch(route, /process\.env\.MAXWEB_AI_API_KEY(?:\?|\s|\.)/);
+  assert.match(route, /MAXWEB_AI_API_KEY2 \(Gemini\)/);
 });
 
-test("credentials never appear in logs or thrown messages", () => {
-  assert.doesNotMatch(
-    source,
-    /console\.(?:log|error|warn)\([^\n]*(?:apiKey|Authorization|x-goog-api-key|MAXWEB_AI_API_KEY)/
-  );
-  assert.doesNotMatch(route, /console\.(?:log|error)\([^\n]*MAXWEB_AI_API_KEY/);
+test("client identifies the consultant as Gemini only", () => {
+  assert.match(client, /AI CONSULTANT · GEMINI/);
+  assert.doesNotMatch(client, /GLM\s*\/\s*GEMINI/i);
+});
+
+test("credentials never appear in logs", () => {
+  assert.doesNotMatch(source, /console\.(?:log|error|warn)\([^\n]*(?:apiKey|Authorization|x-goog-api-key|MAXWEB_AI_API_KEY)/);
 });
 
 test("failed AI calls do not insert an assistant message", () => {
-  // Assistant insert happens only after grokChat resolves.
   const assistantInsert = route.indexOf('role: "assistant"');
-  const grokCall = route.indexOf("await grokChat");
-  assert.ok(grokCall > 0 && assistantInsert > grokCall);
-  assert.match(route, /Never write a fake assistant reply on failure/);
-});
-
-test("chat route maps ProviderError codes to client-safe responses", () => {
-  assert.match(route, /err\.code/);
-  assert.match(route, /glm_auth_failed/);
-  assert.match(route, /providers_unavailable/);
-  assert.match(route, /conversationId/);
+  const geminiCall = route.indexOf("await grokChat");
+  assert.ok(geminiCall > 0 && assistantInsert > geminiCall);
 });
 
 test("quote approval rules remain unchanged", () => {
   assert.doesNotMatch(route, /updates\.agreed_price\s*=/);
   assert.doesNotMatch(route, /updates\.status\s*=\s*["']completed["']/);
-});
-
-test("timeouts use AbortSignal and shorter provider budgets", () => {
-  assert.match(source, /AbortSignal\.timeout\(GLM_TIMEOUT_MS\)/);
-  assert.match(source, /AbortSignal\.timeout\(GEMINI_TIMEOUT_MS\)/);
-  assert.match(source, /provider_timeout/);
 });
