@@ -30,6 +30,17 @@ export default async function AdminPage() {
     .order("updated_at", { ascending: false })
     .limit(30);
 
+  const list = conversations || [];
+  const activeCount = list.filter((c) => c.status === "active").length;
+  const completedCount = list.filter((c) => c.status === "completed").length;
+  const agreedPrices = list
+    .map((c) => c.agreed_price)
+    .filter((p): p is number => typeof p === "number" && p > 0);
+  const avgAgreed =
+    agreedPrices.length > 0
+      ? Math.round(agreedPrices.reduce((a, b) => a + b, 0) / agreedPrices.length)
+      : null;
+
   return (
     <main
       style={{
@@ -85,24 +96,67 @@ export default async function AdminPage() {
           </p>
         </section>
 
-        {/* AI interaction summary */}
-        <section style={{ marginTop: 28 }}>
-          <h2 style={{ fontSize: 20, marginBottom: 14 }}>AI client interactions</h2>
-          {!conversations || conversations.length === 0 ? (
+        {/* AI stats */}
+        <section
+          style={{
+            marginTop: 24,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+            gap: 12,
+          }}
+        >
+          {[
+            { label: "AI chats", value: String(list.length) },
+            { label: "Active", value: String(activeCount) },
+            { label: "Agreed", value: String(completedCount) },
+            {
+              label: "Avg agreed price",
+              value: avgAgreed ? `₹${avgAgreed.toLocaleString("en-IN")}` : "—",
+            },
+          ].map((stat) => (
             <div
+              key={stat.label}
               style={{
                 border: "1px solid #27314b",
                 borderRadius: 14,
-                padding: 20,
+                padding: 18,
                 background: "#10182b",
-                color: "#8e9bb7",
               }}
             >
-              No AI conversations yet. Clients will appear here after they chat on /client.
+              <p style={{ color: "#8ba4d8", fontSize: 12, margin: 0, letterSpacing: 1 }}>
+                {stat.label.toUpperCase()}
+              </p>
+              <p style={{ fontSize: 22, margin: "8px 0 0", fontWeight: 700 }}>{stat.value}</p>
+            </div>
+          ))}
+        </section>
+
+        {/* AI interaction summary */}
+        <section style={{ marginTop: 28 }}>
+          <h2 style={{ fontSize: 20, marginBottom: 14 }}>AI client interactions & bargains</h2>
+          {list.length === 0 ? (
+            <div
+              style={{
+                border: "1px dashed #3d5a8a",
+                borderRadius: 14,
+                padding: 28,
+                background: "#10182b",
+                color: "#8e9bb7",
+                textAlign: "center",
+              }}
+            >
+              <p style={{ margin: "0 0 8px", fontSize: 16, color: "#a9c4ff" }}>
+                No AI conversations yet
+              </p>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+                When clients use the AI consultant on <strong>/client</strong>, their
+                website-type analysis, price negotiation (₹15,000 → floor ₹7,000), and
+                agreed prices will appear here.
+              </p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {conversations.map((c) => (
+              {list.map((c) => (
                 <article
                   key={c.id}
                   style={{
@@ -159,7 +213,18 @@ export default async function AdminPage() {
                     >
                       {c.summary}
                     </p>
-                  ) : null}
+                  ) : (
+                    <p
+                      style={{
+                        color: "#6b7a9a",
+                        fontSize: 13,
+                        margin: "10px 0 0",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      No summary yet — conversation still active.
+                    </p>
+                  )}
                   <p style={{ color: "#6b7a9a", fontSize: 12, margin: "8px 0 0" }}>
                     Updated {new Date(c.updated_at).toLocaleString("en-IN")}
                   </p>
@@ -223,7 +288,7 @@ export default async function AdminPage() {
               >
                 <h3 style={{ margin: 0, fontSize: 16 }}>{item}</h3>
                 <p style={{ color: "#8e9bb7", fontSize: 13, marginBottom: 0 }}>
-                  Admin workspace module — not connected yet
+                  Placeholder module — not connected yet
                 </p>
               </article>
             )
