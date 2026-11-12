@@ -12,6 +12,11 @@ const SUGGESTIONS = [
   "What can I get for ₹10,000?",
 ];
 
+// From homepage (MAXWEB.zip index.html / script.js)
+const WA_PRIMARY = "918106257124"; // +91 81062 57124
+const WA_SECONDARY = "918978957342"; // +91 89789 57342
+const FAMPAY_UPI = "8978957342@fam";
+
 const styles = {
   page: {
     minHeight: "100vh",
@@ -179,6 +184,7 @@ export default function ClientDashboard({
   const [currentPrice, setCurrentPrice] = useState(15000);
   const [agreedPrice, setAgreedPrice] = useState<number | null>(null);
   const [showChips, setShowChips] = useState(true);
+  const [copied, setCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -205,9 +211,9 @@ export default function ClientDashboard({
         const hint =
           data?.message?.includes("MAXWEB AI key") ||
           data?.message?.includes("API key")
-            ? "AI is not configured yet on the server (missing MAXWEB_AI_API_KEY). Please contact admin or use the options below."
+            ? "AI is not configured yet on the server (missing MAXWEB_AI_API_KEY). Please contact admin on WhatsApp below."
             : data?.message ||
-              "Sorry, something went wrong. Please try again or contact us directly.";
+              "Sorry, something went wrong. Please try again or contact us on WhatsApp.";
         setMessages((m) => [...m, { role: "assistant", content: hint }]);
       } else {
         if (data.conversationId) setConversationId(data.conversationId);
@@ -230,6 +236,17 @@ export default function ClientDashboard({
       setBusy(false);
     }
   }
+
+  function copyUpi() {
+    navigator.clipboard?.writeText(FAMPAY_UPI).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  const waMsg = encodeURIComponent(
+    `Hi MAXWEB, I am a client (${userEmail}) and need help with my website project.`
+  );
 
   return (
     <main style={styles.page}>
@@ -342,39 +359,74 @@ export default function ClientDashboard({
         <section style={styles.card}>
           <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Talk to a human admin</h2>
           <p style={{ color: "#8e9bb7", fontSize: 14, marginTop: 0 }}>
-            Prefer WhatsApp, call, or email instead of AI?
+            Same numbers as the homepage — WhatsApp the founders directly.
           </p>
           <div style={styles.contactGrid}>
             <a
-              href="https://wa.me/91XXXXXXXXXX?text=Hi%20MAXWEB%2C%20I%20am%20a%20client%20and%20need%20help%20with%20my%20website%20project."
+              href={`https://wa.me/${WA_PRIMARY}?text=${waMsg}`}
               target="_blank"
               rel="noopener noreferrer"
               style={styles.contactBtn}
             >
-              WhatsApp Admin
+              WhatsApp
               <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
-                +91 XXXXX XXXXX
-              </span>
-            </a>
-            <a href="tel:+91XXXXXXXXXX" style={styles.contactBtn}>
-              Call Admin
-              <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
-                +91 XXXXX XXXXX
+                +91 81062 57124
               </span>
             </a>
             <a
-              href="mailto:hello@maxweb.in?subject=Client%20enquiry"
+              href={`https://wa.me/${WA_SECONDARY}?text=${waMsg}`}
+              target="_blank"
+              rel="noopener noreferrer"
               style={styles.contactBtn}
             >
-              Email Admin
+              WhatsApp
               <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
-                hello@maxweb.in
+                +91 89789 57342
+              </span>
+            </a>
+            <a href={`tel:+${WA_PRIMARY}`} style={styles.contactBtn}>
+              Call
+              <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
+                +91 81062 57124
               </span>
             </a>
           </div>
-          <p style={{ color: "#6b7a9a", fontSize: 12, marginTop: 14, marginBottom: 0 }}>
-            Placeholders — send the real phone numbers and I will update them on this branch.
+        </section>
+
+        <section style={styles.card}>
+          <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Payment (FamPay)</h2>
+          <p style={{ color: "#8e9bb7", fontSize: 14, marginTop: 0 }}>
+            Pay only after your quote is confirmed on WhatsApp. Same UPI as the homepage.
           </p>
+          <div
+            style={{
+              border: "1px solid #3d5a8a",
+              borderRadius: 12,
+              padding: 16,
+              background: "#0c1424",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <div>
+              <p style={{ margin: 0, fontSize: 12, color: "#8ba4d8" }}>FamPay UPI ID</p>
+              <code style={{ fontSize: 16, color: "#eef2ff" }}>{FAMPAY_UPI}</code>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button type="button" onClick={copyUpi} style={styles.btn}>
+                {copied ? "Copied" : "Copy ID"}
+              </button>
+              <a
+                href={`upi://pay?pa=${encodeURIComponent(FAMPAY_UPI)}&pn=MAXWEB&cu=INR`}
+                style={{ ...styles.btn, textDecoration: "none" }}
+              >
+                Pay now
+              </a>
+            </div>
+          </div>
         </section>
       </div>
     </main>
