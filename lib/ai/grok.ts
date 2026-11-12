@@ -1,12 +1,16 @@
 /**
  * Server-only MAXWEB AI provider helper.
- * MAXWEB_AI_API_KEY is the xAI/Grok primary key.
+ * MAXWEB_AI_API_KEY is the Z.ai GLM primary key.
  * MAXWEB_AI_API_KEY2 is the Google Gemini fallback key.
+ *
+ * Keep this module server-only: provider credentials must never reach the browser.
  */
 
-const XAI_BASE = "https://api.x.ai/v1";
+const GLM_CHAT_COMPLETIONS_URL =
+  "https://api.z.ai/api/paas/v4/chat/completions";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
-export const DEFAULT_GROK_MODEL = "grok-4.7";
+
+export const DEFAULT_GLM_MODEL = "glm-5.3-flash";
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 
 export type ChatMessage = {
@@ -22,14 +26,63 @@ type ProviderResult = {
 };
 
 function getConfiguredKeys() {
-  const xaiKey = process.env.MAXWEB_AI_API_KEY?.trim();
+  const glmKey = process.env.MAXWEB_AI_API_KEY?.trim();
   const geminiKey = process.env.MAXWEB_AI_API_KEY2?.trim();
 
-  if (!xaiKey && !geminiKey) {
-    throw new Error("MAXWEB AI is not configured. Add an xAI or Gemini API key to the Preview environment.");
+  if (!glmKey && !geminiKey) {
+    throw new Error(
+      "MAXWEB AI is not configured. Add a GLM or Gemini API key to the server environment."
+    );
   }
 
-  return { xaiKey, geminiKey };
+  return { glmKey, geminiKey };
+}
+
+function parseProviderError(rawBody: string): {
+  code?: string | number;
+  status?: string;
+  message: string;
+} {
+  if (!rawBody) return { message: "The provider returned an empty error response." };
+
+  try {
+    const payload = JSON.parse(rawBody);
+    const providerError = payload?.error ?? payload;
+    return {
+      code:
+        typeof providerError?.code === "string" ||
+        typeof providerError?.code === "number"
+          ? providerError.code
+          : undefined,
+      status:
+        typeof providerError?.status === "string"
+          ? providerError.status
+          : undefined,
+      message:
+        typeof providerError?.message === "string"
+          ? providerError.message
+          : rawBody,
+    };
+  } catch {
+    return { message: rawBody };
+  }
+}
+
+function extractGlmText(data: any): string {
+  const message = data?.choices?.[0]?.message;
+  const content = message?.content;
+
+  if (typeof content === "string") return content.trim();
+
+  if (Array.isArray(content)) {
+    return content
+      .filter((part: any) => typeof part?.text === "string")
+      .map((part: any) => part.text)
+      .join("\n")
+      .trim();
+  }
+
+  return "";
 }
 
 function extractGeminiText(data: any): string {
@@ -44,39 +97,20 @@ function extractGeminiText(data: any): string {
     .trim();
 }
 
-function extractXaiText(data: any): string {
-  if (typeof data?.output_text === "string" && data.output_text.trim()) {
-    return data.output_text;
-  }
-
-  const parts = Array.isArray(data?.output)
-    ? data.output.flatMap((item: any) =>
-        Array.isArray(item?.content) ? item.content : []
-      )
-    : [];
-
-  return parts
-    .filter(
-      (part: any) =>
-        (part?.type === "output_text" || part?.type === "text") &&
-        typeof part?.text === "string"
-    )
-    .map((part: any) => part.text)
-    .join("\n")
-    .trim();
-}
-
-async function callXai(
+async function callGlm(
   apiKey: string,
   messages: ChatMessage[],
-  options?: { model?: string; temperature?: number }
+  options?: { temperature?: number }
 ): Promise<ProviderResult> {
   const model =
-    options?.model ||
-    process.env.MAXWEB_AI_MODEL?.trim() ||
-    DEFAULT_GROK_MODEL;
+    process.env.MAXWEB_GLM_MODEL?.trim() ||
+    DEFAULT_GLM_MODEL;
+  const temperature = Math.min(
+    1,
+    Math.max(0, options?.temperature ?? 0.7)
+  );
 
-  const response = await fetch(`${XAI_BASE}/responses`, {
+  const response = await fetch(GLM_CHAT_COMPLETIONS_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -84,54 +118,47 @@ async function callXai(
     },
     body: JSON.stringify({
       model,
-      input: messages,
-      temperature: options?.temperature ?? 0.7,
+      messages,
+      temperature,
+      stream: false,
     }),
     signal: AbortSignal.timeout(60_000),
   });
 
   if (!response.ok) {
     const rawBody = await response.text();
-    let payload: any = null;
-    if (rawBody) {
-      try {
-        payload = JSON.parse(rawBody);
-      } catch {
-        payload = { message: rawBody };
-      }
-    }
-    const providerError = payload?.error ?? payload;
-    const message =
-      typeof providerError?.message === "string"
-        ? providerError.message
-        : rawBody;
+    const providerError = parseProviderError(rawBody);
 
-    console.error("xAI Responses request rejected", {
+    console.error("GLM chat completion request rejected", {
       status: response.status,
       contentType: response.headers.get("content-type"),
       requestId:
         response.headers.get("x-request-id") ??
         response.headers.get("request-id") ??
         undefined,
-      code:
-        typeof providerError?.code === "string"
-          ? providerError.code
-          : undefined,
-      message: message.slice(0, 500),
+      code: providerError.code,
+      providerStatus: providerError.status,
+      message: providerError.message.slice(0, 500),
     });
 
-    throw new Error(`xAI request failed (HTTP ${response.status}).`);
+    throw new Error(`GLM request failed (HTTP ${response.status}).`);
   }
 
   const data = await response.json();
-  const content = extractXaiText(data);
-  if (!content) throw new Error("xAI returned an empty response.");
+  const content = extractGlmText(data);
+  if (!content) {
+    console.error("GLM chat completion returned no text", {
+      model,
+      finishReason: data?.choices?.[0]?.finish_reason,
+    });
+    throw new Error("GLM returned an empty response.");
+  }
 
   return {
     content,
     usage: data?.usage ?? null,
     model: data?.model ?? model,
-    id: data?.id ?? null,
+    id: typeof data?.id === "string" ? data.id : null,
   };
 }
 
@@ -154,6 +181,10 @@ async function callGemini(
       parts: [{ text: message.content }],
     }));
 
+  if (contents.length === 0) {
+    throw new Error("Gemini requires at least one user or assistant message.");
+  }
+
   const response = await fetch(
     `${GEMINI_BASE}/models/${model}:generateContent`,
     {
@@ -168,7 +199,10 @@ async function callGemini(
           : {}),
         contents,
         generationConfig: {
-          temperature: options?.temperature ?? 0.7,
+          temperature: Math.min(
+            1,
+            Math.max(0, options?.temperature ?? 0.7)
+          ),
         },
       }),
       signal: AbortSignal.timeout(60_000),
@@ -177,32 +211,14 @@ async function callGemini(
 
   if (!response.ok) {
     const rawBody = await response.text();
-    let payload: any = null;
-    if (rawBody) {
-      try {
-        payload = JSON.parse(rawBody);
-      } catch {
-        payload = { message: rawBody };
-      }
-    }
-    const providerError = payload?.error ?? payload;
-    const message =
-      typeof providerError?.message === "string"
-        ? providerError.message
-        : rawBody;
+    const providerError = parseProviderError(rawBody);
 
     console.error("Gemini GenerateContent request rejected", {
       status: response.status,
       contentType: response.headers.get("content-type"),
-      code:
-        typeof providerError?.code === "number"
-          ? providerError.code
-          : undefined,
-      statusText:
-        typeof providerError?.status === "string"
-          ? providerError.status
-          : undefined,
-      message: message.slice(0, 500),
+      code: providerError.code,
+      providerStatus: providerError.status,
+      message: providerError.message.slice(0, 500),
     });
 
     throw new Error(`Gemini request failed (HTTP ${response.status}).`);
@@ -226,20 +242,24 @@ async function callGemini(
   };
 }
 
+/**
+ * The historical export name is retained because existing MAXWEB routes
+ * import grokChat. Provider selection itself is GLM first, Gemini second.
+ */
 export async function grokChat(
   messages: ChatMessage[],
   options?: { model?: string; temperature?: number }
 ): Promise<ProviderResult> {
-  const { xaiKey, geminiKey } = getConfiguredKeys();
-  let xaiError: unknown;
+  const { glmKey, geminiKey } = getConfiguredKeys();
+  let glmError: unknown;
 
-  if (xaiKey) {
+  if (glmKey) {
     try {
-      return await callXai(xaiKey, messages, options);
+      return await callGlm(glmKey, messages, options);
     } catch (error) {
-      xaiError = error;
+      glmError = error;
       if (!geminiKey) throw error;
-      console.warn("xAI primary failed; trying configured Gemini fallback.");
+      console.warn("GLM primary failed; trying configured Gemini fallback.");
     }
   }
 
@@ -247,17 +267,17 @@ export async function grokChat(
     try {
       return await callGemini(geminiKey, messages, options);
     } catch (geminiError) {
-      if (xaiError instanceof Error && geminiError instanceof Error) {
+      if (glmError instanceof Error && geminiError instanceof Error) {
         throw new Error(
-          `AI providers unavailable. xAI: ${xaiError.message} Gemini: ${geminiError.message}`
+          `AI providers unavailable. GLM: ${glmError.message} Gemini: ${geminiError.message}`
         );
       }
       throw geminiError;
     }
   }
 
-  throw xaiError instanceof Error
-    ? xaiError
+  throw glmError instanceof Error
+    ? glmError
     : new Error("MAXWEB AI is not configured.");
 }
 
