@@ -22,12 +22,10 @@ export type ProviderResult = {
 
 export type ProviderErrorCode =
   | "ai_not_configured"
-  | "glm_auth_failed"
   | "gemini_auth_failed"
   | "provider_rate_limit"
   | "provider_unavailable"
   | "provider_timeout"
-  | "providers_unavailable"
   | "provider_error";
 
 export class ProviderError extends Error {
@@ -132,19 +130,6 @@ function backoffMs(attempt: number): number {
   return Math.min(4_000, base + jitter);
 }
 
-function extractGlmText(data: any): string {
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content === "string") return content.trim();
-  if (Array.isArray(content)) {
-    return content
-      .filter((part: any) => typeof part?.text === "string")
-      .map((part: any) => part.text)
-      .join("\n")
-      .trim();
-  }
-  return "";
-}
-
 function extractGeminiText(data: any): string {
   const parts = Array.isArray(data?.candidates?.[0]?.content?.parts)
     ? data.candidates[0].content.parts
@@ -196,10 +181,7 @@ async function callGeminiOnce(
             ? { systemInstruction: { parts: [{ text: systemText }] } }
             : {}),
           contents,
-          generationConfig: {
-            temperature: Math.min(1, Math.max(0, options?.temperature ?? 0.7)),
-          },
-        }),
+                  }),
         signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       }
     );
