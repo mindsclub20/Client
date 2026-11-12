@@ -1,11 +1,37 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { grokChat, BARGAIN_SYSTEM_PROMPT, type ChatMessage } from "@/lib/ai/grok";
+import {
+  grokChat,
+  BARGAIN_SYSTEM_PROMPT,
+  ProviderError,
+  type ChatMessage,
+} from "@/lib/ai/grok";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+function statusForCode(code: string): number {
+  switch (code) {
+    case "ai_not_configured":
+      return 503;
+    case "glm_auth_failed":
+    case "gemini_auth_failed":
+      return 502;
+    case "provider_rate_limit":
+      return 429;
+    case "provider_timeout":
+    case "provider_unavailable":
+    case "providers_unavailable":
+      return 503;
+    default:
+      return 500;
+  }
+}
 
 export async function POST(request: Request) {
+  let conversationId: string | null = null;
+
   try {
     const supabase = await createSupabaseServerClient();
     const {
@@ -17,13 +43,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
 
-    // Fail early with a clear message if AI key is not configured
     if (!process.env.MAXWEB_AI_API_KEY && !process.env.MAXWEB_AI_API_KEY2) {
       return NextResponse.json(
         {
           error: "ai_not_configured",
           message:
-            "MAXWEB AI key missing. Set MAXWEB_AI_API_KEY or MAXWEB_AI_API_KEY2 in server environment variables.",
+            "MAXWEB AI is not configured. Set MAXWEB_AI_API_KEY (GLM) and/or MAXWEB_AI_API_KEY2 (Gemini) in server environment variables.",
         },
         { status: 503 }
       );
@@ -31,14 +56,13 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const message = typeof body.message === "string" ? body.message.trim() : "";
-    let conversationId =
+    conversationId =
       typeof body.conversationId === "string" ? body.conversationId : null;
 
     if (!message) {
       return NextResponse.json({ error: "message_required" }, { status: 400 });
     }
 
-    // Create or load conversation
     if (!conversationId) {
       const { data: created, error: createError } = await supabase
         .from("ai_conversations")
@@ -50,7 +74,7 @@ export async function POST(request: Request) {
           current_price: 15000,
           minimum_price: 7000,
         })
-        .select("id, current_price, minimum_price, website_type, agreed_price")
+        .select("id, current_price, minimum_price, website_type, agreed_price, status")
         .single();
 
       if (createError || !created) {
@@ -60,10 +84,11 @@ export async function POST(request: Request) {
       conversationId = created.id;
     }
 
-    // Verify ownership
     const { data: conversation, error: convError } = await supabase
       .from("ai_conversations")
-      .select("id, user_id, current_price, minimum_price, website_type, agreed_price, status")
+      .select(
+        "id, user_id, current_price, minimum_price, website_type, agreed_price, status"
+      )
       .eq("id", conversationId)
       .single();
 
@@ -71,14 +96,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
-    // Store user message
+    // Persist the user turn before calling providers so a later failure still
+    // keeps the conversation history. Never write a fake assistant reply on failure.
     await supabase.from("ai_messages").insert({
       conversation_id: conversationId,
       role: "user",
       content: message,
     });
 
-    // Load recent history (last 20 messages)
     const { data: history } = await supabase
       .from("ai_messages")
       .select("role, content")
@@ -94,18 +119,19 @@ export async function POST(request: Request) {
       })),
     ];
 
-    // Call Grok
     const result = await grokChat(messages);
 
-    // Store assistant reply
     await supabase.from("ai_messages").insert({
       conversation_id: conversationId,
       role: "assistant",
       content: result.content,
-      metadata: { model: result.model, usage: result.usage },
+      metadata: {
+        model: result.model,
+        usage: result.usage,
+        provider: result.provider,
+      },
     });
 
-    // Lightweight extraction of price from the reply
     const priceMatch =
       result.content.match(/(?:₹|Rs\.?|INR)\s*([0-9]{4,6})/i) ||
       result.content.match(/\b([7-9][0-9]{3}|1[0-4][0-9]{3}|15000)\b/);
@@ -118,14 +144,11 @@ export async function POST(request: Request) {
     }
 
     // AI output is advisory only. It must never approve a quote or complete a project.
-    // Customer acceptance and admin approval must be recorded through a separate,
-    // authenticated approval workflow.
     const updates: Record<string, unknown> = {
       current_price: currentPrice,
       updated_at: new Date().toISOString(),
     };
 
-    // Simple website type detection from user message
     const typeHints = [
       "restaurant",
       "portfolio",
@@ -155,13 +178,41 @@ export async function POST(request: Request) {
       currentPrice,
       agreedPrice: conversation.agreed_price,
       status: conversation.status,
+      provider: result.provider,
     });
   } catch (err) {
-    console.error("AI chat error", err instanceof Error ? err.message : err);
+    const safeMessage =
+      err instanceof ProviderError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : "unknown";
+
+    // Never log secrets; message from ProviderError is already sanitized.
+    console.error("AI chat error", {
+      code: err instanceof ProviderError ? err.code : "server_error",
+      provider: err instanceof ProviderError ? err.provider : undefined,
+      httpStatus: err instanceof ProviderError ? err.httpStatus : undefined,
+      message: safeMessage.slice(0, 500),
+      conversationId,
+    });
+
+    if (err instanceof ProviderError) {
+      return NextResponse.json(
+        {
+          error: err.code,
+          message: err.message,
+          conversationId,
+        },
+        { status: statusForCode(err.code) }
+      );
+    }
+
     return NextResponse.json(
       {
         error: "server_error",
-        message: err instanceof Error ? err.message : "unknown",
+        message: safeMessage.slice(0, 300),
+        conversationId,
       },
       { status: 500 }
     );
