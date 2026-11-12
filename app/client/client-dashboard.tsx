@@ -4,6 +4,14 @@ import { useState, useRef, useEffect } from "react";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
+const SUGGESTIONS = [
+  "I need a business landing page",
+  "Restaurant website with menu",
+  "Creative portfolio site",
+  "Small online shop",
+  "What can I get for ₹10,000?",
+];
+
 const styles = {
   page: {
     minHeight: "100vh",
@@ -39,12 +47,12 @@ const styles = {
     marginBottom: 20,
   } as React.CSSProperties,
   chatBox: {
-    height: 360,
+    height: 380,
     overflowY: "auto" as const,
     display: "flex",
     flexDirection: "column" as const,
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
     paddingRight: 4,
   },
   bubbleUser: {
@@ -55,6 +63,7 @@ const styles = {
     maxWidth: "85%",
     fontSize: 14,
     lineHeight: 1.45,
+    whiteSpace: "pre-wrap" as const,
   } as React.CSSProperties,
   bubbleAi: {
     alignSelf: "flex-start" as const,
@@ -64,6 +73,7 @@ const styles = {
     maxWidth: "85%",
     fontSize: 14,
     lineHeight: 1.45,
+    whiteSpace: "pre-wrap" as const,
   } as React.CSSProperties,
   form: { display: "flex", gap: 10 } as React.CSSProperties,
   input: {
@@ -86,6 +96,16 @@ const styles = {
     cursor: "pointer",
     fontSize: 14,
   } as React.CSSProperties,
+  btnDisabled: {
+    border: "1px solid #52658e",
+    borderRadius: 10,
+    padding: "12px 18px",
+    background: "#26334d",
+    color: "#8e9bb7",
+    fontWeight: 600,
+    cursor: "wait",
+    fontSize: 14,
+  } as React.CSSProperties,
   priceTag: {
     display: "inline-block",
     background: "#1a2d52",
@@ -95,6 +115,21 @@ const styles = {
     fontSize: 13,
     color: "#a9c4ff",
     marginBottom: 12,
+  } as React.CSSProperties,
+  chips: {
+    display: "flex",
+    flexWrap: "wrap" as const,
+    gap: 8,
+    marginBottom: 14,
+  },
+  chip: {
+    border: "1px solid #3d5a8a",
+    borderRadius: 999,
+    padding: "6px 12px",
+    background: "#0c1424",
+    color: "#a9c4ff",
+    fontSize: 12,
+    cursor: "pointer",
   } as React.CSSProperties,
   contactGrid: {
     display: "grid",
@@ -113,6 +148,15 @@ const styles = {
     fontWeight: 600,
     fontSize: 14,
   } as React.CSSProperties,
+  aiBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 11,
+    color: "#8ba4d8",
+    letterSpacing: 1,
+    marginBottom: 10,
+  } as React.CSSProperties,
 };
 
 export default function ClientDashboard({
@@ -126,7 +170,7 @@ export default function ClientDashboard({
     {
       role: "assistant",
       content:
-        "Hi! I’m MAXWEB’s AI consultant. Tell me what kind of website you need and I’ll help shape the scope and a fair price (we start at ₹15,000 and can negotiate down to ₹7,000).",
+        "Hi! I’m MAXWEB’s AI consultant (powered by Grok).\n\nTell me what kind of website you need — business, restaurant, portfolio, shop, or something custom — and I’ll help shape the scope and a fair price.\n\nWe start at ₹15,000 and can negotiate down to ₹7,000.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -134,17 +178,19 @@ export default function ClientDashboard({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [currentPrice, setCurrentPrice] = useState(15000);
   const [agreedPrice, setAgreedPrice] = useState<number | null>(null);
+  const [showChips, setShowChips] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, busy]);
 
-  async function send() {
-    const text = input.trim();
-    if (!text || busy) return;
+  async function sendText(text: string) {
+    const cleaned = text.trim();
+    if (!cleaned || busy) return;
+    setShowChips(false);
     setInput("");
-    setMessages((m) => [...m, { role: "user", content: text }]);
+    setMessages((m) => [...m, { role: "user", content: cleaned }]);
     setBusy(true);
 
     try {
@@ -152,19 +198,17 @@ export default function ClientDashboard({
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, conversationId }),
+        body: JSON.stringify({ message: cleaned, conversationId }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMessages((m) => [
-          ...m,
-          {
-            role: "assistant",
-            content:
-              data?.message ||
-              "Sorry, something went wrong. Please try again or contact us directly.",
-          },
-        ]);
+        const hint =
+          data?.message?.includes("MAXWEB AI key") ||
+          data?.message?.includes("API key")
+            ? "AI is not configured yet on the server (missing MAXWEB_AI_API_KEY). Please contact admin or use the options below."
+            : data?.message ||
+              "Sorry, something went wrong. Please try again or contact us directly.";
+        setMessages((m) => [...m, { role: "assistant", content: hint }]);
       } else {
         if (data.conversationId) setConversationId(data.conversationId);
         if (typeof data.currentPrice === "number") setCurrentPrice(data.currentPrice);
@@ -223,11 +267,25 @@ export default function ClientDashboard({
         </header>
 
         <section style={styles.card}>
+          <div style={styles.aiBadge}>
+            <span
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: busy ? "#f0c14b" : "#7ddea8",
+                display: "inline-block",
+              }}
+            />
+            AI CONSULTANT · GROK
+          </div>
+
           <div style={styles.priceTag}>
             {agreedPrice
               ? `Agreed price: ₹${agreedPrice.toLocaleString("en-IN")}`
-              : `Current discussion: ₹${currentPrice.toLocaleString("en-IN")} (floor ₹7,000)`}
+              : `Current discussion: ₹${currentPrice.toLocaleString("en-IN")} · floor ₹7,000`}
           </div>
+
           <div style={styles.chatBox}>
             {messages.map((m, i) => (
               <div
@@ -237,13 +295,34 @@ export default function ClientDashboard({
                 {m.content}
               </div>
             ))}
+            {busy ? (
+              <div style={{ ...styles.bubbleAi, color: "#8ba4d8", fontStyle: "italic" }}>
+                AI is thinking…
+              </div>
+            ) : null}
             <div ref={bottomRef} />
           </div>
+
+          {showChips && !busy ? (
+            <div style={styles.chips}>
+              {SUGGESTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  style={styles.chip}
+                  onClick={() => sendText(s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           <form
             style={styles.form}
             onSubmit={(e) => {
               e.preventDefault();
-              send();
+              sendText(input);
             }}
           >
             <input
@@ -252,40 +331,49 @@ export default function ClientDashboard({
               onChange={(e) => setInput(e.target.value)}
               placeholder="Describe the website you need…"
               disabled={busy}
+              aria-label="Message to AI consultant"
             />
-            <button type="submit" style={styles.btn} disabled={busy}>
+            <button type="submit" style={busy ? styles.btnDisabled : styles.btn} disabled={busy}>
               {busy ? "…" : "Send"}
             </button>
           </form>
         </section>
 
         <section style={styles.card}>
-          <h2 style={{ margin: "0 0 12px", fontSize: 18 }}>Talk to a human</h2>
+          <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Talk to a human admin</h2>
           <p style={{ color: "#8e9bb7", fontSize: 14, marginTop: 0 }}>
-            Prefer to message or call an admin directly? Use the options below.
+            Prefer WhatsApp, call, or email instead of AI?
           </p>
           <div style={styles.contactGrid}>
             <a
-              href="https://wa.me/919876543210?text=Hi%20MAXWEB%2C%20I%20am%20a%20client%20and%20need%20help%20with%20my%20website%20project."
+              href="https://wa.me/91XXXXXXXXXX?text=Hi%20MAXWEB%2C%20I%20am%20a%20client%20and%20need%20help%20with%20my%20website%20project."
               target="_blank"
               rel="noopener noreferrer"
               style={styles.contactBtn}
             >
               WhatsApp Admin
+              <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
+                +91 XXXXX XXXXX
+              </span>
             </a>
-            <a href="tel:+919876543210" style={styles.contactBtn}>
+            <a href="tel:+91XXXXXXXXXX" style={styles.contactBtn}>
               Call Admin
+              <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
+                +91 XXXXX XXXXX
+              </span>
             </a>
             <a
-              href="mailto:hello@maxweb.example?subject=Client%20enquiry"
+              href="mailto:hello@maxweb.in?subject=Client%20enquiry"
               style={styles.contactBtn}
             >
               Email Admin
+              <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
+                hello@maxweb.in
+              </span>
             </a>
           </div>
           <p style={{ color: "#6b7a9a", fontSize: 12, marginTop: 14, marginBottom: 0 }}>
-            Replace the placeholder phone/email above with your real numbers in the code
-            (or tell me the real ones and I will update them).
+            Placeholders — send the real phone numbers and I will update them on this branch.
           </p>
         </section>
       </div>
