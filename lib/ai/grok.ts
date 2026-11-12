@@ -1,7 +1,7 @@
 /**
  * Server-only xAI Grok helper.
  * Uses MAXWEB_AI_API_KEY as primary and MAXWEB_AI_API_KEY2 as fallback.
- * Endpoint: https://api.x.ai/v1
+ * Grok 4.7 is called through xAI's recommended Responses API.
  */
 
 const XAI_BASE = "https://api.x.ai/v1";
@@ -17,11 +17,33 @@ function getApiKeys(): string[] {
     process.env.MAXWEB_AI_API_KEY,
     process.env.MAXWEB_AI_API_KEY2,
   ].filter((key): key is string => Boolean(key?.trim()));
-  const uniqueKeys = [...new Set(keys)];
+  const uniqueKeys = [...new Set(keys.map((key) => key.trim()))];
   if (!uniqueKeys.length) {
-    throw new Error("MAXWEB AI is not configured.");
+    throw new Error("MAXWEB AI is not configured. Add an xAI API key to the Preview environment.");
   }
   return uniqueKeys;
+}
+
+function extractResponseText(data: any): string {
+  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+    return data.output_text;
+  }
+
+  const parts = Array.isArray(data?.output)
+    ? data.output.flatMap((item: any) =>
+        Array.isArray(item?.content) ? item.content : []
+      )
+    : [];
+
+  return parts
+    .filter(
+      (part: any) =>
+        (part?.type === "output_text" || part?.type === "text") &&
+        typeof part?.text === "string"
+    )
+    .map((part: any) => part.text)
+    .join("\n")
+    .trim();
 }
 
 export async function grokChat(
@@ -29,7 +51,6 @@ export async function grokChat(
   options?: { model?: string; temperature?: number }
 ) {
   const apiKeys = getApiKeys();
-  // Allow an explicit server-side override while defaulting to a current xAI model.
   const model =
     options?.model ||
     process.env.MAXWEB_AI_MODEL?.trim() ||
@@ -39,7 +60,7 @@ export async function grokChat(
 
   for (let index = 0; index < apiKeys.length; index += 1) {
     try {
-      const response = await fetch(`${XAI_BASE}/chat/completions`, {
+      const response = await fetch(`${XAI_BASE}/responses`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -47,23 +68,21 @@ export async function grokChat(
         },
         body: JSON.stringify({
           model,
-          messages,
+          input: messages,
           temperature,
-          stream: false,
         }),
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(60_000),
       });
 
       if (!response.ok) {
         lastStatus = response.status;
-        // Capture only provider error metadata; never log request headers or API keys.
         const errorPayload = await response.json().catch(() => null);
         const providerError = errorPayload?.error ?? errorPayload;
         const providerMessage =
           typeof providerError?.message === "string"
             ? providerError.message
             : "";
-        console.error("xAI chat completion rejected request", {
+        console.error("xAI Responses request rejected", {
           status: response.status,
           code:
             typeof providerError?.code === "string"
@@ -78,20 +97,27 @@ export async function grokChat(
               ? providerError.param
               : undefined,
           message: providerMessage.slice(0, 300),
+          keySlot: index === 0 ? "primary" : "secondary",
         });
 
-        // Try the secondary key if the primary key is rejected or rate-limited.
         if (index < apiKeys.length - 1) continue;
-        throw new Error("AI provider request failed.");
+
+        if (response.status === 400) {
+          throw new Error(
+            "xAI rejected the request (HTTP 400). Check the xAI API key and request configuration."
+          );
+        }
+        throw new Error(`xAI request failed (HTTP ${response.status}).`);
       }
 
       const data = await response.json();
-      const content =
-        data?.choices?.[0]?.message?.content ??
-        data?.choices?.[0]?.text ??
-        "";
-      if (typeof content !== "string" || !content.trim()) {
-        throw new Error("AI provider returned an empty response.");
+      const content = extractResponseText(data);
+      if (!content) {
+        console.error("xAI Responses API returned no text", {
+          model: data?.model ?? model,
+          status: data?.status,
+        });
+        throw new Error("xAI returned an empty response.");
       }
 
       return {
@@ -100,8 +126,11 @@ export async function grokChat(
         model: data?.model ?? model,
         id: data?.id ?? null,
       };
-    } catch {
+    } catch (error) {
       if (index === apiKeys.length - 1) {
+        if (error instanceof Error && error.message.startsWith("xAI")) {
+          throw error;
+        }
         throw new Error(
           lastStatus
             ? `AI provider unavailable (HTTP ${lastStatus}).`
