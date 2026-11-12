@@ -209,9 +209,8 @@ export default function ClientDashboard({
       const data = await res.json();
       if (!res.ok) {
         const hint =
-          data?.message?.includes("MAXWEB AI key") ||
-          data?.message?.includes("API key")
-            ? "AI is not configured yet on the server (missing MAXWEB_AI_API_KEY). Please contact admin on WhatsApp below."
+          data?.error === "ai_not_configured"
+            ? "MAXWEB AI is not configured on this deployment yet. Please contact the admin on WhatsApp below."
             : data?.message ||
               "Sorry, something went wrong. Please try again or contact us on WhatsApp.";
         setMessages((m) => [...m, { role: "assistant", content: hint }]);
