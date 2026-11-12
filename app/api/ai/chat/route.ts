@@ -117,23 +117,13 @@ export async function POST(request: Request) {
       }
     }
 
-    // Detect agreement
-    const lower = result.content.toLowerCase();
-    const agreed =
-      lower.includes("agreed") ||
-      lower.includes("confirmed at") ||
-      lower.includes("final price") ||
-      lower.includes("we can lock");
-
+    // AI output is advisory only. It must never approve a quote or complete a project.
+    // Customer acceptance and admin approval must be recorded through a separate,
+    // authenticated approval workflow.
     const updates: Record<string, unknown> = {
       current_price: currentPrice,
       updated_at: new Date().toISOString(),
     };
-    if (agreed && currentPrice) {
-      updates.agreed_price = currentPrice;
-      updates.status = "completed";
-      updates.summary = `Agreed at ₹${currentPrice}. ${result.content.slice(0, 200)}`;
-    }
 
     // Simple website type detection from user message
     const typeHints = [
@@ -163,8 +153,8 @@ export async function POST(request: Request) {
       conversationId,
       reply: result.content,
       currentPrice,
-      agreedPrice: agreed ? currentPrice : conversation.agreed_price,
-      status: agreed ? "completed" : conversation.status,
+      agreedPrice: conversation.agreed_price,
+      status: conversation.status,
     });
   } catch (err) {
     console.error("AI chat error", err instanceof Error ? err.message : err);
