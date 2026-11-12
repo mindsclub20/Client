@@ -17,6 +17,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
 
+    // Fail early with a clear message if AI key is not configured
+    if (!process.env.MAXWEB_AI_API_KEY && !process.env.MAXWEB_AI_API_KEY2) {
+      return NextResponse.json(
+        {
+          error: "ai_not_configured",
+          message:
+            "MAXWEB AI key missing. Set MAXWEB_AI_API_KEY or MAXWEB_AI_API_KEY2 in server environment variables.",
+        },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const message = typeof body.message === "string" ? body.message.trim() : "";
     let conversationId =
@@ -93,8 +105,9 @@ export async function POST(request: Request) {
       metadata: { model: result.model, usage: result.usage },
     });
 
-    // Lightweight extraction of price / website type from the reply
-    const priceMatch = result.content.match(/(?:₹|Rs\.?|INR)\s*([0-9]{4,6})/i) ||
+    // Lightweight extraction of price from the reply
+    const priceMatch =
+      result.content.match(/(?:₹|Rs\.?|INR)\s*([0-9]{4,6})/i) ||
       result.content.match(/\b([7-9][0-9]{3}|1[0-4][0-9]{3}|15000)\b/);
     let currentPrice = conversation.current_price;
     if (priceMatch) {
@@ -156,7 +169,10 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("AI chat error", err instanceof Error ? err.message : err);
     return NextResponse.json(
-      { error: "server_error", message: err instanceof Error ? err.message : "unknown" },
+      {
+        error: "server_error",
+        message: err instanceof Error ? err.message : "unknown",
+      },
       { status: 500 }
     );
   }
