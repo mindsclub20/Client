@@ -18,6 +18,7 @@ test("MAXWEB sends key 1 to the GLM OpenAI-compatible chat completions API", asy
   assert.match(source, /DEFAULT_GLM_MODEL\s*=\s*"glm-5\.3-flash"/);
   assert.match(source, /choices\?\.\[0\]\?\.message/);
   assert.match(source, /MAXWEB_GLM_MODEL/);
+  assert.match(source, /Accept-Language/);
 });
 
 test("MAXWEB sends key 2 to Gemini GenerateContent as fallback", async () => {
@@ -26,17 +27,24 @@ test("MAXWEB sends key 2 to Gemini GenerateContent as fallback", async () => {
   assert.match(source, /"x-goog-api-key": apiKey/);
   assert.match(source, /candidates/);
   assert.match(source, /MAXWEB_GEMINI_MODEL/);
+  assert.match(source, /DEFAULT_GEMINI_MODEL\s*=\s*"gemini-2\.0-flash"/);
 });
 
 test("MAXWEB logs safe provider rejection details without logging credentials", async () => {
   const source = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
   assert.match(source, /GLM chat completion request rejected/);
   assert.match(source, /Gemini GenerateContent request rejected/);
-  assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*(?:apiKey|Authorization|x-goog-api-key)/);
+  assert.doesNotMatch(
+    source,
+    /console\.(?:log|error)\([^\n]*(?:apiKey|Authorization|x-goog-api-key)/
+  );
 });
 
 test("client only shows missing-key guidance for the explicit configuration error code", async () => {
-  const source = await readFile(new URL("../app/client/client-dashboard.tsx", import.meta.url), "utf8");
+  const source = await readFile(
+    new URL("../app/client/client-dashboard.tsx", import.meta.url),
+    "utf8"
+  );
   assert.match(source, /data\?\.error\s*===\s*"ai_not_configured"/);
   assert.doesNotMatch(source, /data\?\.message\?\.includes\(["']API key["']\)/);
 });
