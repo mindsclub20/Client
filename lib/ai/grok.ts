@@ -1,30 +1,50 @@
 /**
- * Server-only xAI Grok helper.
- * Uses MAXWEB_AI_API_KEY as primary and MAXWEB_AI_API_KEY2 as fallback.
- * Grok 4.7 is called through xAI's recommended Responses API.
+ * Server-only MAXWEB AI provider helper.
+ * MAXWEB_AI_API_KEY is the xAI/Grok primary key.
+ * MAXWEB_AI_API_KEY2 is the Google Gemini fallback key.
  */
 
 const XAI_BASE = "https://api.x.ai/v1";
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 export const DEFAULT_GROK_MODEL = "grok-4.7";
+export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
-function getApiKeys(): string[] {
-  const keys = [
-    process.env.MAXWEB_AI_API_KEY,
-    process.env.MAXWEB_AI_API_KEY2,
-  ].filter((key): key is string => Boolean(key?.trim()));
-  const uniqueKeys = [...new Set(keys.map((key) => key.trim()))];
-  if (!uniqueKeys.length) {
-    throw new Error("MAXWEB AI is not configured. Add an xAI API key to the Preview environment.");
+type ProviderResult = {
+  content: string;
+  usage: unknown;
+  model: string;
+  id: string | null;
+};
+
+function getConfiguredKeys() {
+  const xaiKey = process.env.MAXWEB_AI_API_KEY?.trim();
+  const geminiKey = process.env.MAXWEB_AI_API_KEY2?.trim();
+
+  if (!xaiKey && !geminiKey) {
+    throw new Error("MAXWEB AI is not configured. Add an xAI or Gemini API key to the Preview environment.");
   }
-  return uniqueKeys;
+
+  return { xaiKey, geminiKey };
 }
 
-function extractResponseText(data: any): string {
+function extractGeminiText(data: any): string {
+  const parts = Array.isArray(data?.candidates?.[0]?.content?.parts)
+    ? data.candidates[0].content.parts
+    : [];
+
+  return parts
+    .filter((part: any) => typeof part?.text === "string")
+    .map((part: any) => part.text)
+    .join("\n")
+    .trim();
+}
+
+function extractXaiText(data: any): string {
   if (typeof data?.output_text === "string" && data.output_text.trim()) {
     return data.output_text;
   }
@@ -46,116 +66,199 @@ function extractResponseText(data: any): string {
     .trim();
 }
 
-export async function grokChat(
+async function callXai(
+  apiKey: string,
   messages: ChatMessage[],
   options?: { model?: string; temperature?: number }
-) {
-  const apiKeys = getApiKeys();
+): Promise<ProviderResult> {
   const model =
     options?.model ||
     process.env.MAXWEB_AI_MODEL?.trim() ||
     DEFAULT_GROK_MODEL;
-  const temperature = options?.temperature ?? 0.7;
-  let lastStatus: number | undefined;
 
-  for (let index = 0; index < apiKeys.length; index += 1) {
-    try {
-      const response = await fetch(`${XAI_BASE}/responses`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKeys[index]}`,
+  const response = await fetch(`${XAI_BASE}/responses`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      input: messages,
+      temperature: options?.temperature ?? 0.7,
+    }),
+    signal: AbortSignal.timeout(60_000),
+  });
+
+  if (!response.ok) {
+    const rawBody = await response.text();
+    let payload: any = null;
+    if (rawBody) {
+      try {
+        payload = JSON.parse(rawBody);
+      } catch {
+        payload = { message: rawBody };
+      }
+    }
+    const providerError = payload?.error ?? payload;
+    const message =
+      typeof providerError?.message === "string"
+        ? providerError.message
+        : rawBody;
+
+    console.error("xAI Responses request rejected", {
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      requestId:
+        response.headers.get("x-request-id") ??
+        response.headers.get("request-id") ??
+        undefined,
+      code:
+        typeof providerError?.code === "string"
+          ? providerError.code
+          : undefined,
+      message: message.slice(0, 500),
+    });
+
+    throw new Error(`xAI request failed (HTTP ${response.status}).`);
+  }
+
+  const data = await response.json();
+  const content = extractXaiText(data);
+  if (!content) throw new Error("xAI returned an empty response.");
+
+  return {
+    content,
+    usage: data?.usage ?? null,
+    model: data?.model ?? model,
+    id: data?.id ?? null,
+  };
+}
+
+async function callGemini(
+  apiKey: string,
+  messages: ChatMessage[],
+  options?: { temperature?: number }
+): Promise<ProviderResult> {
+  const model =
+    process.env.MAXWEB_GEMINI_MODEL?.trim() ||
+    DEFAULT_GEMINI_MODEL;
+  const systemText = messages
+    .filter((message) => message.role === "system")
+    .map((message) => message.content)
+    .join("\n\n");
+  const contents = messages
+    .filter((message) => message.role !== "system")
+    .map((message) => ({
+      role: message.role === "assistant" ? "model" : "user",
+      parts: [{ text: message.content }],
+    }));
+
+  const response = await fetch(
+    `${GEMINI_BASE}/models/${model}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        ...(systemText
+          ? { systemInstruction: { parts: [{ text: systemText }] } }
+          : {}),
+        contents,
+        generationConfig: {
+          temperature: options?.temperature ?? 0.7,
         },
-        body: JSON.stringify({
-          model,
-          input: messages,
-          temperature,
-        }),
-        signal: AbortSignal.timeout(60_000),
-      });
+      }),
+      signal: AbortSignal.timeout(60_000),
+    }
+  );
 
-      if (!response.ok) {
-        lastStatus = response.status;
-        // Read the body as text first: upstream gateways sometimes return
-        // plain text or HTML instead of JSON for 4xx responses.
-        const rawBody = await response.text();
-        let errorPayload: any = null;
-        if (rawBody) {
-          try {
-            errorPayload = JSON.parse(rawBody);
-          } catch {
-            errorPayload = { message: rawBody };
-          }
-        }
-        const providerError = errorPayload?.error ?? errorPayload;
-        const providerMessage =
-          typeof providerError?.message === "string"
-            ? providerError.message
-            : rawBody;
-        console.error("xAI Responses request rejected", {
-          status: response.status,
-          contentType: response.headers.get("content-type"),
-          requestId:
-            response.headers.get("x-request-id") ??
-            response.headers.get("request-id") ??
-            undefined,
-          code:
-            typeof providerError?.code === "string"
-              ? providerError.code
-              : undefined,
-          type:
-            typeof providerError?.type === "string"
-              ? providerError.type
-              : undefined,
-          param:
-            typeof providerError?.param === "string"
-              ? providerError.param
-              : undefined,
-          message: providerMessage.slice(0, 500),
-          keySlot: index === 0 ? "primary" : "secondary",
-        });
-
-        if (index < apiKeys.length - 1) continue;
-
-        if (response.status === 400) {
-          throw new Error(
-            "xAI rejected the request (HTTP 400). Check the xAI API key and request configuration."
-          );
-        }
-        throw new Error(`xAI request failed (HTTP ${response.status}).`);
+  if (!response.ok) {
+    const rawBody = await response.text();
+    let payload: any = null;
+    if (rawBody) {
+      try {
+        payload = JSON.parse(rawBody);
+      } catch {
+        payload = { message: rawBody };
       }
+    }
+    const providerError = payload?.error ?? payload;
+    const message =
+      typeof providerError?.message === "string"
+        ? providerError.message
+        : rawBody;
 
-      const data = await response.json();
-      const content = extractResponseText(data);
-      if (!content) {
-        console.error("xAI Responses API returned no text", {
-          model: data?.model ?? model,
-          status: data?.status,
-        });
-        throw new Error("xAI returned an empty response.");
-      }
+    console.error("Gemini GenerateContent request rejected", {
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      code:
+        typeof providerError?.code === "number"
+          ? providerError.code
+          : undefined,
+      statusText:
+        typeof providerError?.status === "string"
+          ? providerError.status
+          : undefined,
+      message: message.slice(0, 500),
+    });
 
-      return {
-        content,
-        usage: data?.usage ?? null,
-        model: data?.model ?? model,
-        id: data?.id ?? null,
-      };
+    throw new Error(`Gemini request failed (HTTP ${response.status}).`);
+  }
+
+  const data = await response.json();
+  const content = extractGeminiText(data);
+  if (!content) {
+    console.error("Gemini GenerateContent returned no text", {
+      model,
+      finishReason: data?.candidates?.[0]?.finishReason,
+    });
+    throw new Error("Gemini returned an empty response.");
+  }
+
+  return {
+    content,
+    usage: data?.usageMetadata ?? null,
+    model: data?.modelVersion ?? model,
+    id: null,
+  };
+}
+
+export async function grokChat(
+  messages: ChatMessage[],
+  options?: { model?: string; temperature?: number }
+): Promise<ProviderResult> {
+  const { xaiKey, geminiKey } = getConfiguredKeys();
+  let xaiError: unknown;
+
+  if (xaiKey) {
+    try {
+      return await callXai(xaiKey, messages, options);
     } catch (error) {
-      if (index === apiKeys.length - 1) {
-        if (error instanceof Error && error.message.startsWith("xAI")) {
-          throw error;
-        }
-        throw new Error(
-          lastStatus
-            ? `AI provider unavailable (HTTP ${lastStatus}).`
-            : "AI provider unavailable. Please try again."
-        );
-      }
+      xaiError = error;
+      if (!geminiKey) throw error;
+      console.warn("xAI primary failed; trying configured Gemini fallback.");
     }
   }
 
-  throw new Error("AI provider unavailable. Please try again.");
+  if (geminiKey) {
+    try {
+      return await callGemini(geminiKey, messages, options);
+    } catch (geminiError) {
+      if (xaiError instanceof Error && geminiError instanceof Error) {
+        throw new Error(
+          `AI providers unavailable. xAI: ${xaiError.message} Gemini: ${geminiError.message}`
+        );
+      }
+      throw geminiError;
+    }
+  }
+
+  throw xaiError instanceof Error
+    ? xaiError
+    : new Error("MAXWEB AI is not configured.");
 }
 
 export const BARGAIN_SYSTEM_PROMPT = `You are MAXWEB's expert website consultant and pricing negotiator.
