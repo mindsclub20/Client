@@ -12,10 +12,26 @@ const SUGGESTIONS = [
   "What can I get for ₹10,000?",
 ];
 
-// From homepage (MAXWEB.zip index.html / script.js)
-const WA_PRIMARY = "918106257124"; // +91 81062 57124
-const WA_SECONDARY = "918978957342"; // +91 89789 57342
+const WA_PRIMARY = "918106257124";
+const WA_SECONDARY = "918978957342";
 const FAMPAY_UPI = "8978957342@fam";
+
+function friendlyAiError(data: { error?: string; message?: string } | null): string {
+  const code = data?.error || "";
+  if (code === "ai_not_configured") {
+    return "MAXWEB AI is not configured on this deployment yet. Please contact the admin on WhatsApp below.";
+  }
+  if (code === "glm_auth_failed" || code === "gemini_auth_failed") {
+    return "AI authentication failed. The site owner needs to check the API keys in Vercel. You can still reach us on WhatsApp.";
+  }
+  if (code === "provider_rate_limit") {
+    return "The AI is busy right now. Please wait a moment and try again.";
+  }
+  if (code === "provider_timeout" || code === "provider_unavailable" || code === "providers_unavailable") {
+    return "The AI service is temporarily unavailable. Please try again shortly, or message us on WhatsApp.";
+  }
+  return data?.message || "Sorry, something went wrong. Please try again or contact us on WhatsApp.";
+}
 
 const styles = {
   page: {
@@ -175,7 +191,7 @@ export default function ClientDashboard({
     {
       role: "assistant",
       content:
-        "Hi! I’m MAXWEB’s AI consultant (powered by Grok).\n\nTell me what kind of website you need — business, restaurant, portfolio, shop, or something custom — and I’ll help shape the scope and a fair price.\n\nWe start at ₹15,000 and can negotiate down to ₹7,000.",
+        "Hi! I’m MAXWEB’s AI consultant.\n\nTell me what kind of website you need — business, restaurant, portfolio, shop, or something custom — and I’ll help shape the scope and a fair price.\n\nWe start at ₹15,000 and can negotiate down to ₹7,000.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -207,15 +223,10 @@ export default function ClientDashboard({
         body: JSON.stringify({ message: cleaned, conversationId }),
       });
       const data = await res.json();
+      if (data?.conversationId) setConversationId(data.conversationId);
       if (!res.ok) {
-        const hint =
-          data?.error === "ai_not_configured"
-            ? "MAXWEB AI is not configured on this deployment yet. Please contact the admin on WhatsApp below."
-            : data?.message ||
-              "Sorry, something went wrong. Please try again or contact us on WhatsApp.";
-        setMessages((m) => [...m, { role: "assistant", content: hint }]);
+        setMessages((m) => [...m, { role: "assistant", content: friendlyAiError(data) }]);
       } else {
-        if (data.conversationId) setConversationId(data.conversationId);
         if (typeof data.currentPrice === "number") setCurrentPrice(data.currentPrice);
         if (data.agreedPrice) setAgreedPrice(data.agreedPrice);
         setMessages((m) => [
@@ -293,7 +304,7 @@ export default function ClientDashboard({
                 display: "inline-block",
               }}
             />
-            AI CONSULTANT · GROK
+            AI CONSULTANT · GLM / GEMINI
           </div>
 
           <div style={styles.priceTag}>
