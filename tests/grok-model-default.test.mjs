@@ -19,3 +19,11 @@ test("MAXWEB records safe provider rejection details without logging credentials
   assert.match(source, /providerMessage\.slice\(0,\s*300\)/);
   assert.doesNotMatch(source, /console\.(?:log|error)\([^\n]*(?:apiKeys|Authorization)/);
 });
+
+
+test("MAXWEB preserves non-JSON xAI error bodies for diagnostics", async () => {
+  const source = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
+  assert.match(source, /await response\.text\(\)/);
+  assert.match(source, /contentType:\s*response\.headers\.get\(["']content-type["']\)/);
+  assert.match(source, /rawBody\.slice\(0,\s*500\)/);
+});
