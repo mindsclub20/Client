@@ -15,14 +15,12 @@ function statusForCode(code: string): number {
   switch (code) {
     case "ai_not_configured":
       return 503;
-    case "glm_auth_failed":
     case "gemini_auth_failed":
       return 502;
     case "provider_rate_limit":
       return 429;
     case "provider_timeout":
     case "provider_unavailable":
-    case "providers_unavailable":
       return 503;
     default:
       return 500;
@@ -43,12 +41,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
 
-    if (!process.env.MAXWEB_AI_API_KEY && !process.env.MAXWEB_AI_API_KEY2) {
+    if (!process.env.MAXWEB_AI_API_KEY2) {
       return NextResponse.json(
         {
           error: "ai_not_configured",
           message:
-            "MAXWEB AI is not configured. Set MAXWEB_AI_API_KEY (GLM) and/or MAXWEB_AI_API_KEY2 (Gemini) in server environment variables.",
+            "MAXWEB AI is not configured. Set MAXWEB_AI_API_KEY2 (Gemini) in server environment variables.",
         },
         { status: 503 }
       );
