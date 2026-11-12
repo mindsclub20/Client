@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import DashboardShell from "@/app/components/dashboard-shell";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -27,46 +28,51 @@ function friendlyAiError(data: { error?: string; message?: string } | null): str
   if (code === "provider_rate_limit") {
     return "The AI is busy right now. Please wait a moment and try again.";
   }
-  if (code === "provider_timeout" || code === "provider_unavailable" || code === "providers_unavailable") {
+  if (
+    code === "provider_timeout" ||
+    code === "provider_unavailable" ||
+    code === "providers_unavailable"
+  ) {
     return "The AI service is temporarily unavailable. Please try again shortly, or message us on WhatsApp.";
   }
-  return data?.message || "Sorry, something went wrong. Please try again or contact us on WhatsApp.";
+  return (
+    data?.message ||
+    "Sorry, something went wrong. Please try again or contact us on WhatsApp."
+  );
 }
 
+const card: React.CSSProperties = {
+  border: "1px solid #ffffff1f",
+  borderRadius: 16,
+  padding: 20,
+  background: "linear-gradient(160deg, #143a72, #0e2d5c)",
+  marginBottom: 20,
+};
+
 const styles = {
-  page: {
-    minHeight: "100vh",
-    background: "#080d1c",
-    color: "#eef2ff",
-    fontFamily: "Manrope, Arial, sans-serif",
-    padding: "32px 20px 80px",
-  } as React.CSSProperties,
-  container: { maxWidth: 920, margin: "0 auto" } as React.CSSProperties,
   header: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     flexWrap: "wrap" as const,
     gap: 16,
-    borderBottom: "1px solid #27314b",
+    borderBottom: "1px solid #ffffff1f",
     paddingBottom: 24,
     marginBottom: 28,
   },
   label: {
-    color: "#8ba4d8",
+    color: "#9fb3cf",
     letterSpacing: 2,
     fontSize: 12,
     margin: 0,
   } as React.CSSProperties,
-  h1: { fontSize: 28, margin: "8px 0 0" } as React.CSSProperties,
-  link: { color: "#a9c4ff", textDecoration: "none" } as React.CSSProperties,
-  card: {
-    border: "1px solid #27314b",
-    borderRadius: 16,
-    padding: 20,
-    background: "#10182b",
-    marginBottom: 20,
+  h1: {
+    fontFamily: "Instrument Serif, Georgia, serif",
+    fontWeight: 400,
+    fontSize: 28,
+    margin: "8px 0 0",
   } as React.CSSProperties,
+  link: { color: "#eaf1fb", textDecoration: "none" } as React.CSSProperties,
   chatBox: {
     height: 380,
     overflowY: "auto" as const,
@@ -78,7 +84,7 @@ const styles = {
   },
   bubbleUser: {
     alignSelf: "flex-end" as const,
-    background: "#1e3a6e",
+    background: "#1b4a86",
     borderRadius: "14px 14px 4px 14px",
     padding: "10px 14px",
     maxWidth: "85%",
@@ -88,7 +94,8 @@ const styles = {
   } as React.CSSProperties,
   bubbleAi: {
     alignSelf: "flex-start" as const,
-    background: "#17243d",
+    background: "#0a2147",
+    border: "1px solid #ffffff1f",
     borderRadius: "14px 14px 14px 4px",
     padding: "10px 14px",
     maxWidth: "85%",
@@ -99,42 +106,42 @@ const styles = {
   form: { display: "flex", gap: 10 } as React.CSSProperties,
   input: {
     flex: 1,
-    border: "1px solid #52658e",
-    borderRadius: 10,
+    border: "1px solid #ffffff2e",
+    borderRadius: 12,
     padding: "12px 14px",
-    background: "#0c1424",
-    color: "#eef2ff",
+    background: "#ffffff0d",
+    color: "#eaf1fb",
     fontSize: 14,
     outline: "none",
   } as React.CSSProperties,
   btn: {
-    border: "1px solid #52658e",
-    borderRadius: 10,
+    border: "1px solid #ffffff40",
+    borderRadius: 12,
     padding: "12px 18px",
-    background: "#1a2d52",
-    color: "#eef2ff",
+    background: "transparent",
+    color: "#eaf1fb",
     fontWeight: 600,
     cursor: "pointer",
     fontSize: 14,
   } as React.CSSProperties,
   btnDisabled: {
-    border: "1px solid #52658e",
-    borderRadius: 10,
+    border: "1px solid #ffffff20",
+    borderRadius: 12,
     padding: "12px 18px",
-    background: "#26334d",
-    color: "#8e9bb7",
+    background: "#ffffff08",
+    color: "#9fb3cf",
     fontWeight: 600,
     cursor: "wait",
     fontSize: 14,
   } as React.CSSProperties,
   priceTag: {
     display: "inline-block",
-    background: "#1a2d52",
-    border: "1px solid #3d5a8a",
+    background: "#0a2147",
+    border: "1px solid #ffffff1f",
     borderRadius: 8,
     padding: "6px 12px",
     fontSize: 13,
-    color: "#a9c4ff",
+    color: "#d29a68",
     marginBottom: 12,
   } as React.CSSProperties,
   chips: {
@@ -144,11 +151,11 @@ const styles = {
     marginBottom: 14,
   },
   chip: {
-    border: "1px solid #3d5a8a",
+    border: "1px solid #ffffff1f",
     borderRadius: 999,
     padding: "6px 12px",
-    background: "#0c1424",
-    color: "#a9c4ff",
+    background: "#0a2147",
+    color: "#eaf1fb",
     fontSize: 12,
     cursor: "pointer",
   } as React.CSSProperties,
@@ -160,11 +167,11 @@ const styles = {
   contactBtn: {
     display: "block",
     textAlign: "center" as const,
-    border: "1px solid #52658e",
+    border: "1px solid #ffffff1f",
     borderRadius: 12,
     padding: "14px 16px",
-    background: "#17243d",
-    color: "#eef2ff",
+    background: "#0a2147",
+    color: "#eaf1fb",
     textDecoration: "none",
     fontWeight: 600,
     fontSize: 14,
@@ -174,7 +181,7 @@ const styles = {
     alignItems: "center",
     gap: 6,
     fontSize: 11,
-    color: "#8ba4d8",
+    color: "#9fb3cf",
     letterSpacing: 1,
     marginBottom: 10,
   } as React.CSSProperties,
@@ -259,186 +266,216 @@ export default function ClientDashboard({
   );
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-        <header style={styles.header}>
-          <div>
-            <p style={styles.label}>MAXWEB CLIENT PORTAL</p>
-            <h1 style={styles.h1}>
-              {userName ? `Welcome, ${userName}` : "Your dashboard"}
-            </h1>
-            <p style={{ color: "#8e9bb7", margin: "6px 0 0", fontSize: 14 }}>
-              {userEmail}
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <a href="/" style={styles.link}>
-              View website
-            </a>
-            <button
-              type="button"
-              onClick={async () => {
-                await fetch("/api/auth/sign-out", {
-                  method: "POST",
-                  credentials: "same-origin",
-                  headers: { "Content-Type": "application/json" },
-                  body: "{}",
-                });
-                window.location.replace("/#login");
-              }}
-              style={styles.btn}
-            >
-              Log out
-            </button>
-          </div>
-        </header>
-
-        <section style={styles.card}>
-          <div style={styles.aiBadge}>
-            <span
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: busy ? "#f0c14b" : "#7ddea8",
-                display: "inline-block",
-              }}
-            />
-            AI CONSULTANT · GLM / GEMINI
-          </div>
-
-          <div style={styles.priceTag}>
-            {agreedPrice
-              ? `Agreed price: ₹${agreedPrice.toLocaleString("en-IN")}`
-              : `Current discussion: ₹${currentPrice.toLocaleString("en-IN")} · floor ₹7,000`}
-          </div>
-
-          <div style={styles.chatBox}>
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                style={m.role === "user" ? styles.bubbleUser : styles.bubbleAi}
+    <DashboardShell>
+      <div style={{ padding: "32px 20px 80px" }}>
+        <div style={{ maxWidth: 920, margin: "0 auto" }}>
+          <header style={styles.header}>
+            <div>
+              <p style={styles.label}>MAXWEB CLIENT PORTAL</p>
+              <h1 style={styles.h1}>
+                {userName ? `Welcome, ${userName}` : "Your dashboard"}
+              </h1>
+              <p style={{ color: "#9fb3cf", margin: "6px 0 0", fontSize: 14 }}>
+                {userEmail}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+              <a href="/" style={styles.link}>
+                View website
+              </a>
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch("/api/auth/sign-out", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: { "Content-Type": "application/json" },
+                    body: "{}",
+                  });
+                  window.location.replace("/#login");
+                }}
+                style={styles.btn}
               >
-                {m.content}
-              </div>
-            ))}
-            {busy ? (
-              <div style={{ ...styles.bubbleAi, color: "#8ba4d8", fontStyle: "italic" }}>
-                AI is thinking…
+                Log out
+              </button>
+            </div>
+          </header>
+
+          <section style={card}>
+            <div style={styles.aiBadge}>
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: busy ? "#d29a68" : "#2fb5ae",
+                  display: "inline-block",
+                }}
+              />
+              AI CONSULTANT · GLM / GEMINI
+            </div>
+
+            <div style={styles.priceTag}>
+              {agreedPrice
+                ? `Agreed price: ₹${agreedPrice.toLocaleString("en-IN")}`
+                : `Current discussion: ₹${currentPrice.toLocaleString("en-IN")} · floor ₹7,000`}
+            </div>
+
+            <div style={styles.chatBox}>
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  style={m.role === "user" ? styles.bubbleUser : styles.bubbleAi}
+                >
+                  {m.content}
+                </div>
+              ))}
+              {busy ? (
+                <div style={{ ...styles.bubbleAi, color: "#9fb3cf", fontStyle: "italic" }}>
+                  AI is thinking…
+                </div>
+              ) : null}
+              <div ref={bottomRef} />
+            </div>
+
+            {showChips && !busy ? (
+              <div style={styles.chips}>
+                {SUGGESTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    style={styles.chip}
+                    onClick={() => sendText(s)}
+                  >
+                    {s}
+                  </button>
+                ))}
               </div>
             ) : null}
-            <div ref={bottomRef} />
-          </div>
 
-          {showChips && !busy ? (
-            <div style={styles.chips}>
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  style={styles.chip}
-                  onClick={() => sendText(s)}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          <form
-            style={styles.form}
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendText(input);
-            }}
-          >
-            <input
-              style={styles.input}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Describe the website you need…"
-              disabled={busy}
-              aria-label="Message to AI consultant"
-            />
-            <button type="submit" style={busy ? styles.btnDisabled : styles.btn} disabled={busy}>
-              {busy ? "…" : "Send"}
-            </button>
-          </form>
-        </section>
-
-        <section style={styles.card}>
-          <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Talk to a human admin</h2>
-          <p style={{ color: "#8e9bb7", fontSize: 14, marginTop: 0 }}>
-            Same numbers as the homepage — WhatsApp the founders directly.
-          </p>
-          <div style={styles.contactGrid}>
-            <a
-              href={`https://wa.me/${WA_PRIMARY}?text=${waMsg}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.contactBtn}
+            <form
+              style={styles.form}
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendText(input);
+              }}
             >
-              WhatsApp
-              <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
-                +91 81062 57124
-              </span>
-            </a>
-            <a
-              href={`https://wa.me/${WA_SECONDARY}?text=${waMsg}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={styles.contactBtn}
-            >
-              WhatsApp
-              <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
-                +91 89789 57342
-              </span>
-            </a>
-            <a href={`tel:+${WA_PRIMARY}`} style={styles.contactBtn}>
-              Call
-              <span style={{ display: "block", fontWeight: 400, fontSize: 12, color: "#8e9bb7", marginTop: 4 }}>
-                +91 81062 57124
-              </span>
-            </a>
-          </div>
-        </section>
-
-        <section style={styles.card}>
-          <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Payment (FamPay)</h2>
-          <p style={{ color: "#8e9bb7", fontSize: 14, marginTop: 0 }}>
-            Pay only after your quote is confirmed on WhatsApp. Same UPI as the homepage.
-          </p>
-          <div
-            style={{
-              border: "1px solid #3d5a8a",
-              borderRadius: 12,
-              padding: 16,
-              background: "#0c1424",
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <div>
-              <p style={{ margin: 0, fontSize: 12, color: "#8ba4d8" }}>FamPay UPI ID</p>
-              <code style={{ fontSize: 16, color: "#eef2ff" }}>{FAMPAY_UPI}</code>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button type="button" onClick={copyUpi} style={styles.btn}>
-                {copied ? "Copied" : "Copy ID"}
-              </button>
-              <a
-                href={`upi://pay?pa=${encodeURIComponent(FAMPAY_UPI)}&pn=MAXWEB&cu=INR`}
-                style={{ ...styles.btn, textDecoration: "none" }}
+              <input
+                style={styles.input}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Describe the website you need…"
+                disabled={busy}
+                aria-label="Message to AI consultant"
+              />
+              <button
+                type="submit"
+                style={busy ? styles.btnDisabled : styles.btn}
+                disabled={busy}
               >
-                Pay now
+                {busy ? "…" : "Send"}
+              </button>
+            </form>
+          </section>
+
+          <section style={card}>
+            <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Talk to a human admin</h2>
+            <p style={{ color: "#9fb3cf", fontSize: 14, marginTop: 0 }}>
+              Same numbers as the homepage — WhatsApp the founders directly.
+            </p>
+            <div style={styles.contactGrid}>
+              <a
+                href={`https://wa.me/${WA_PRIMARY}?text=${waMsg}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.contactBtn}
+              >
+                WhatsApp
+                <span
+                  style={{
+                    display: "block",
+                    fontWeight: 400,
+                    fontSize: 12,
+                    color: "#9fb3cf",
+                    marginTop: 4,
+                  }}
+                >
+                  +91 81062 57124
+                </span>
+              </a>
+              <a
+                href={`https://wa.me/${WA_SECONDARY}?text=${waMsg}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={styles.contactBtn}
+              >
+                WhatsApp
+                <span
+                  style={{
+                    display: "block",
+                    fontWeight: 400,
+                    fontSize: 12,
+                    color: "#9fb3cf",
+                    marginTop: 4,
+                  }}
+                >
+                  +91 89789 57342
+                </span>
+              </a>
+              <a href={`tel:+${WA_PRIMARY}`} style={styles.contactBtn}>
+                Call
+                <span
+                  style={{
+                    display: "block",
+                    fontWeight: 400,
+                    fontSize: 12,
+                    color: "#9fb3cf",
+                    marginTop: 4,
+                  }}
+                >
+                  +91 81062 57124
+                </span>
               </a>
             </div>
-          </div>
-        </section>
+          </section>
+
+          <section style={card}>
+            <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Payment (FamPay)</h2>
+            <p style={{ color: "#9fb3cf", fontSize: 14, marginTop: 0 }}>
+              Pay only after your quote is confirmed on WhatsApp. Same UPI as the homepage.
+            </p>
+            <div
+              style={{
+                border: "1px solid #ffffff1f",
+                borderRadius: 12,
+                padding: 16,
+                background: "#0a2147",
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+              }}
+            >
+              <div>
+                <p style={{ margin: 0, fontSize: 12, color: "#9fb3cf" }}>FamPay UPI ID</p>
+                <code style={{ fontSize: 16, color: "#eaf1fb" }}>{FAMPAY_UPI}</code>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button type="button" onClick={copyUpi} style={styles.btn}>
+                  {copied ? "Copied" : "Copy ID"}
+                </button>
+                <a
+                  href={`upi://pay?pa=${encodeURIComponent(FAMPAY_UPI)}&pn=MAXWEB&cu=INR`}
+                  style={{ ...styles.btn, textDecoration: "none" }}
+                >
+                  Pay now
+                </a>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
-    </main>
+    </DashboardShell>
   );
 }
