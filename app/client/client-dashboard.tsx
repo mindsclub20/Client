@@ -312,7 +312,7 @@ export default function ClientDashboard({
                   display: "inline-block",
                 }}
               />
-              AI CONSULTANT · GLM / GEMINI
+              AI CONSULTANT · GEMINI
             </div>
 
             <div style={styles.priceTag}>
