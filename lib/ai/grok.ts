@@ -5,6 +5,7 @@
  */
 
 const XAI_BASE = "https://api.x.ai/v1";
+export const DEFAULT_GROK_MODEL = "grok-4.7";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -28,7 +29,11 @@ export async function grokChat(
   options?: { model?: string; temperature?: number }
 ) {
   const apiKeys = getApiKeys();
-  const model = options?.model || "grok-4-0709";
+  // Allow an explicit server-side override while defaulting to a current xAI model.
+  const model =
+    options?.model ||
+    process.env.MAXWEB_AI_MODEL?.trim() ||
+    DEFAULT_GROK_MODEL;
   const temperature = options?.temperature ?? 0.7;
   let lastStatus: number | undefined;
 
