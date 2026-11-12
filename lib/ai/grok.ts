@@ -76,14 +76,29 @@ export async function grokChat(
 
       if (!response.ok) {
         lastStatus = response.status;
-        const errorPayload = await response.json().catch(() => null);
+        // Read the body as text first: upstream gateways sometimes return
+        // plain text or HTML instead of JSON for 4xx responses.
+        const rawBody = await response.text();
+        let errorPayload: any = null;
+        if (rawBody) {
+          try {
+            errorPayload = JSON.parse(rawBody);
+          } catch {
+            errorPayload = { message: rawBody };
+          }
+        }
         const providerError = errorPayload?.error ?? errorPayload;
         const providerMessage =
           typeof providerError?.message === "string"
             ? providerError.message
-            : "";
+            : rawBody;
         console.error("xAI Responses request rejected", {
           status: response.status,
+          contentType: response.headers.get("content-type"),
+          requestId:
+            response.headers.get("x-request-id") ??
+            response.headers.get("request-id") ??
+            undefined,
           code:
             typeof providerError?.code === "string"
               ? providerError.code
@@ -96,7 +111,7 @@ export async function grokChat(
             typeof providerError?.param === "string"
               ? providerError.param
               : undefined,
-          message: providerMessage.slice(0, 300),
+          message: providerMessage.slice(0, 500),
           keySlot: index === 0 ? "primary" : "secondary",
         });
 
