@@ -56,6 +56,30 @@ export async function grokChat(
 
       if (!response.ok) {
         lastStatus = response.status;
+        // Capture only provider error metadata; never log request headers or API keys.
+        const errorPayload = await response.json().catch(() => null);
+        const providerError = errorPayload?.error ?? errorPayload;
+        const providerMessage =
+          typeof providerError?.message === "string"
+            ? providerError.message
+            : "";
+        console.error("xAI chat completion rejected request", {
+          status: response.status,
+          code:
+            typeof providerError?.code === "string"
+              ? providerError.code
+              : undefined,
+          type:
+            typeof providerError?.type === "string"
+              ? providerError.type
+              : undefined,
+          param:
+            typeof providerError?.param === "string"
+              ? providerError.param
+              : undefined,
+          message: providerMessage.slice(0, 300),
+        });
+
         // Try the secondary key if the primary key is rejected or rate-limited.
         if (index < apiKeys.length - 1) continue;
         throw new Error("AI provider request failed.");
