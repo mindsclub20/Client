@@ -100,6 +100,9 @@ export async function POST(request: Request) {
     if (convError || !conversation || conversation.user_id !== user.id) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
+    if (conversation.status !== "active") {
+      return NextResponse.json({ error: "conversation_closed" }, { status: 409 });
+    }
 
     // Persist the user turn before calling providers so a later failure still
     // keeps the conversation history. Never write a fake assistant reply on failure.
@@ -117,7 +120,7 @@ export async function POST(request: Request) {
       .from("ai_messages")
       .select("role, content")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(20);
     if (historyError) {
       console.error("load conversation history failed", { conversationId, code: historyError.code });
@@ -126,7 +129,7 @@ export async function POST(request: Request) {
 
     const messages: ChatMessage[] = [
       { role: "system", content: BARGAIN_SYSTEM_PROMPT },
-      ...(history || []).map((m) => ({
+      ...[...(history || [])].reverse().map((m) => ({
         role: m.role as "user" | "assistant" | "system",
         content: m.content,
       })),
@@ -184,10 +187,14 @@ export async function POST(request: Request) {
       }
     }
 
-    await supabase
+    const { error: conversationUpdateError } = await supabase
       .from("ai_conversations")
       .update(updates)
       .eq("id", conversationId);
+    if (conversationUpdateError) {
+      console.error("conversation update failed", { conversationId, code: conversationUpdateError.code });
+      return NextResponse.json({ error: "conversation_update_failed", conversationId }, { status: 500 });
+    }
 
     return NextResponse.json({
       conversationId,
@@ -228,7 +235,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: "server_error",
-        message: safeMessage.slice(0, 300),
+        message: "An unexpected server error occurred.",
         conversationId,
       },
       { status: 500 }
