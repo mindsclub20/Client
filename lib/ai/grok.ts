@@ -2,10 +2,21 @@
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
+/** Primary stable Flash model per Google AI docs (Nov 2026). */
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 
-const GEMINI_TIMEOUT_MS = 20_000;
-const GEMINI_MAX_ATTEMPTS = 3;
+/**
+ * Ordered fallbacks when the primary model returns 404 / NOT_FOUND or is
+ * capacity-constrained. Keep only documented Gemini IDs; never reintroduce GLM/xAI.
+ */
+export const GEMINI_MODEL_FALLBACKS = [
+  "gemini-3.8-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
+] as const;
+
+const GEMINI_TIMEOUT_MS = 25_000;
+const GEMINI_MAX_ATTEMPTS = 4;
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -66,6 +77,23 @@ export function normalizeGeminiModel(value?: string): string {
   }
   return model;
 }
+
+function resolveModelCandidates(preferred?: string): string[] {
+  const primary = normalizeGeminiModel(
+    preferred || process.env.MAXWEB_GEMINI_MODEL
+  );
+  const ordered = [primary, ...GEMINI_MODEL_FALLBACKS];
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const id of ordered) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      unique.push(id);
+    }
+  }
+  return unique;
+}
+
 function getConfiguredKeys() {
   const geminiKey = process.env.MAXWEB_AI_API_KEY2?.trim() || "";
   return { geminiKey };
@@ -100,6 +128,12 @@ function parseProviderError(rawBody: string): {
   }
 }
 
+function isModelNotFound(status: number, detail: string, code?: string | number): boolean {
+  if (status === 404) return true;
+  const text = `${code ?? ""} ${detail}`.toLowerCase();
+  return text.includes("not_found") || text.includes("is not found") || text.includes("unknown model");
+}
+
 function classifyHttpError(status: number, detail: string): ProviderError {
   if (status === 401 || status === 403) {
     return new ProviderError(
@@ -109,23 +143,31 @@ function classifyHttpError(status: number, detail: string): ProviderError {
     );
   }
   if (status === 429) {
-    return new ProviderError("provider_rate_limit", "Gemini rate limit reached. Please try again shortly.", {
-      provider: "gemini", httpStatus: status, retryable: true,
-    });
+    return new ProviderError(
+      "provider_rate_limit",
+      "Gemini rate limit reached. Please try again shortly.",
+      { provider: "gemini", httpStatus: status, retryable: true }
+    );
   }
   if (status === 503 || status === 502 || status === 504) {
-    return new ProviderError("provider_unavailable", "Gemini is temporarily unavailable.", {
-      provider: "gemini", httpStatus: status, retryable: true,
-    });
+    return new ProviderError(
+      "provider_unavailable",
+      "Gemini is temporarily unavailable due to high demand. Please try again in a moment.",
+      { provider: "gemini", httpStatus: status, retryable: true }
+    );
   }
   if (status === 400) {
     return new ProviderError("provider_error", detail || "Bad request to Gemini.", {
-      provider: "gemini", httpStatus: status, retryable: false,
+      provider: "gemini",
+      httpStatus: status,
+      retryable: false,
     });
   }
-  return new ProviderError("provider_error", `Gemini request failed (HTTP ${status}).`, {
-    provider: "gemini", httpStatus: status, retryable: status >= 500,
-  });
+  return new ProviderError(
+    "provider_error",
+    `Gemini request failed (HTTP ${status}).`,
+    { provider: "gemini", httpStatus: status, retryable: status >= 500 }
+  );
 }
 
 function isAbortError(error: unknown): boolean {
@@ -139,9 +181,10 @@ function sleep(ms: number) {
 }
 
 function backoffMs(attempt: number): number {
-  const base = 400 * Math.pow(2, attempt);
-  const jitter = Math.floor(Math.random() * 200);
-  return Math.min(4_000, base + jitter);
+  // 0.6s, 1.2s, 2.4s, 4s max + jitter — better for 503 capacity spikes
+  const base = 600 * Math.pow(2, attempt);
+  const jitter = Math.floor(Math.random() * 300);
+  return Math.min(5_000, base + jitter);
 }
 
 function extractGeminiText(data: any): string {
@@ -158,9 +201,9 @@ function extractGeminiText(data: any): string {
 async function callGeminiOnce(
   apiKey: string,
   messages: ChatMessage[],
-  options?: { model?: string; temperature?: number }
+  model: string,
+  options?: { temperature?: number }
 ): Promise<ProviderResult> {
-  const model = normalizeGeminiModel(options?.model || process.env.MAXWEB_GEMINI_MODEL);
   const systemText = messages
     .filter((message) => message.role === "system")
     .map((message) => message.content)
@@ -195,23 +238,24 @@ async function callGeminiOnce(
             ? { systemInstruction: { parts: [{ text: systemText }] } }
             : {}),
           contents,
-                  }),
+          generationConfig: {
+            temperature: Math.min(1, Math.max(0, options?.temperature ?? 0.7)),
+          },
+        }),
         signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       }
     );
   } catch (error) {
     if (isAbortError(error)) {
-      throw new ProviderError(
-        "provider_timeout",
-        "Gemini request timed out.",
-        { provider: "gemini", retryable: true }
-      );
+      throw new ProviderError("provider_timeout", "Gemini request timed out.", {
+        provider: "gemini",
+        retryable: true,
+      });
     }
-    throw new ProviderError(
-      "provider_unavailable",
-      "Gemini network error.",
-      { provider: "gemini", retryable: true }
-    );
+    throw new ProviderError("provider_unavailable", "Gemini network error.", {
+      provider: "gemini",
+      retryable: true,
+    });
   }
 
   if (!response.ok) {
@@ -226,6 +270,14 @@ async function callGeminiOnce(
       message: providerError.message.slice(0, 500),
       model,
     });
+
+    if (isModelNotFound(response.status, providerError.message, providerError.code)) {
+      throw new ProviderError(
+        "provider_error",
+        `Gemini model unavailable: ${model}`,
+        { provider: "gemini", httpStatus: response.status, retryable: false }
+      );
+    }
 
     throw classifyHttpError(response.status, providerError.message);
   }
@@ -253,16 +305,17 @@ async function callGeminiOnce(
   };
 }
 
-async function callGemini(
+async function callGeminiWithRetries(
   apiKey: string,
   messages: ChatMessage[],
-  options?: { model?: string; temperature?: number }
+  model: string,
+  options?: { temperature?: number }
 ): Promise<ProviderResult> {
   let lastError: ProviderError | undefined;
 
   for (let attempt = 0; attempt < GEMINI_MAX_ATTEMPTS; attempt++) {
     try {
-      return await callGeminiOnce(apiKey, messages, options);
+      return await callGeminiOnce(apiKey, messages, model, options);
     } catch (error) {
       const pe =
         error instanceof ProviderError
@@ -273,13 +326,13 @@ async function callGemini(
             });
       lastError = pe;
 
-      // Never retry auth / client errors
       if (
         !pe.retryable ||
         pe.code === "gemini_auth_failed" ||
         pe.httpStatus === 400 ||
         pe.httpStatus === 401 ||
-        pe.httpStatus === 403
+        pe.httpStatus === 403 ||
+        pe.httpStatus === 404
       ) {
         throw pe;
       }
@@ -290,11 +343,80 @@ async function callGemini(
           attempt: attempt + 1,
           code: pe.code,
           httpStatus: pe.httpStatus,
+          model,
           waitMs: wait,
         });
         await sleep(wait);
         continue;
       }
+      throw pe;
+    }
+  }
+
+  throw (
+    lastError ??
+    new ProviderError("provider_unavailable", "Gemini unavailable.", {
+      provider: "gemini",
+      retryable: true,
+    })
+  );
+}
+
+async function callGemini(
+  apiKey: string,
+  messages: ChatMessage[],
+  options?: { model?: string; temperature?: number }
+): Promise<ProviderResult> {
+  const candidates = resolveModelCandidates(options?.model);
+  let lastError: ProviderError | undefined;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const model = candidates[i];
+    try {
+      return await callGeminiWithRetries(apiKey, messages, model, options);
+    } catch (error) {
+      const pe =
+        error instanceof ProviderError
+          ? error
+          : new ProviderError("provider_error", "Gemini failed.", {
+              provider: "gemini",
+              retryable: false,
+            });
+      lastError = pe;
+
+      // Auth failure is not model-specific — stop immediately.
+      if (pe.code === "gemini_auth_failed" || pe.code === "ai_not_configured") {
+        throw pe;
+      }
+
+      // Try next model only for not-found / hard model errors.
+      const tryNext =
+        pe.httpStatus === 404 ||
+        (pe.message || "").toLowerCase().includes("model unavailable");
+
+      if (tryNext && i < candidates.length - 1) {
+        console.warn("Gemini model failed; trying fallback model", {
+          failedModel: model,
+          nextModel: candidates[i + 1],
+          code: pe.code,
+          httpStatus: pe.httpStatus,
+        });
+        continue;
+      }
+
+      // Capacity / timeout: if we still have models, optionally try next once.
+      if (
+        (pe.code === "provider_unavailable" || pe.code === "provider_timeout") &&
+        i < candidates.length - 1
+      ) {
+        console.warn("Gemini capacity issue; trying fallback model", {
+          failedModel: model,
+          nextModel: candidates[i + 1],
+          code: pe.code,
+        });
+        continue;
+      }
+
       throw pe;
     }
   }
