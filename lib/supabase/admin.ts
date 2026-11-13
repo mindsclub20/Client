@@ -1,9 +1,9 @@
+import "server-only";
 import { createClient } from "@supabase/supabase-js";
 
 /**
  * Server-only Supabase client with the service role key.
- * Used by cron/summarize jobs that must read all conversations.
- * Never import this into client components.
+ * Used by trusted server jobs that must read and update protected records.
  */
 export function createSupabaseAdminClient() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;

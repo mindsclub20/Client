@@ -21,9 +21,9 @@ test("MAXWEB chat route validates request size and preserves authenticated owner
 });
 
 
-test("chat history query loads the newest 20 messages and restores chronological order", async () => {
+test("chat history query loads the newest configured history window and restores chronological order", async () => {
   const route = await readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8");
-  assert.match(route, /\.order\("created_at", \{ ascending: false \}\)\s*\.limit\(20\)/);
+  assert.match(route, /\.order\("created_at", \{ ascending: false \}\)\s*\.limit\(HISTORY_LIMIT\)/);
   assert.match(route, /\[\.\.\.\(history \|\| \[\]\)\]\.reverse\(\)\.map/);
 });
 

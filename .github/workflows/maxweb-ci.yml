@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/ai-admin-client-dashboards
+      - fix/cron-summary-reliability
   pull_request:
     branches:
       - main
