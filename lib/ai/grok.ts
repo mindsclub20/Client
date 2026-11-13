@@ -64,6 +64,18 @@ export class ProviderError extends Error {
   }
 }
 
+export function normalizeGeminiModel(value?: string): string {
+  const model = (value?.trim() || DEFAULT_GEMINI_MODEL).replace(/^models\//, "");
+  if (!/^[A-Za-z0-9._-]+$/.test(model)) {
+    throw new ProviderError(
+      "provider_error",
+      "Invalid Gemini model configuration.",
+      { provider: "gemini", retryable: false }
+    );
+  }
+  return model;
+}
+
 function getConfiguredKeys() {
   const geminiKey = process.env.MAXWEB_AI_API_KEY2?.trim() || "";
   return { geminiKey };
