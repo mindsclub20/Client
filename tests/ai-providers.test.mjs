@@ -16,7 +16,8 @@ test("MAXWEB uses only MAXWEB_AI_API_KEY2 for Gemini", () => {
 test("Gemini uses the configured current model default", () => {
   assert.match(source, /DEFAULT_GEMINI_MODEL\s*=\s*"gemini-3\.8-flash"/);
   assert.match(source, /MAXWEB_GEMINI_MODEL/);
-  assert.match(source, /GEMINI_BASE\s*=\s*"https:\/\/generativelanguage\.googleapis\.com\/v1beta"/);\n  assert.match(source, /models\/\$\{encodeURIComponent\(model\)\}:generateContent/);
+  assert.match(source, /GEMINI_BASE\s*=\s*"https:\/\/generativelanguage\.googleapis\.com\/v1beta"/);
+  assert.match(source, /models\/\$\{encodeURIComponent\(model\)\}:generateContent/);
   assert.match(source, /"x-goog-api-key": apiKey/);
 });
 
@@ -39,7 +40,8 @@ test("client identifies the consultant as Gemini only", () => {
 });
 
 test("credentials never appear in logs", () => {
-  assert.doesNotMatch(source, /console\.(?:log|error|warn)\([^\n]*(?:apiKey|Authorization|x-goog-api-key|MAXWEB_AI_API_KEY)/);
+  assert.doesNotMatch(source, /console\.(?:log|error|warn)\([^
+]*(?:apiKey|Authorization|x-goog-api-key|MAXWEB_AI_API_KEY)/);
 });
 
 test("failed AI calls do not insert an assistant message", () => {
