@@ -84,7 +84,11 @@ begin
     returning j.conversation_id, j.source_updated_at, j.claim_token
   )
   select cl.conversation_id, cl.source_updated_at, cl.claim_token,
-         to_jsonb(c)
+         jsonb_build_object(
+           'website_type', c.website_type,
+           'current_price', c.current_price,
+           'status', c.status
+         )
   from claimed cl
   join public.ai_conversations c on c.id = cl.conversation_id;
 end;
