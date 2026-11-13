@@ -29,6 +29,7 @@ function getJobState(job: SummaryJob, now: number) {
 export default async function AdminAISummaryMonitor() {
   let jobs: SummaryJob[] = [];
   let conversationsById = new Map<string, { title: string | null; summary: string | null; user_id: string }>();
+  let latestCustomerMessageByConversation = new Map<string, string>();
   let unavailable = false;
 
   try {
@@ -55,6 +56,21 @@ export default async function AdminAISummaryMonitor() {
           { title: conversation.title, summary: conversation.summary, user_id: conversation.user_id },
         ])
       );
+
+      const { data: messages, error: messageError } = await admin
+        .from("ai_messages")
+        .select("conversation_id, role, content")
+        .in("conversation_id", jobs.map((job) => job.conversation_id))
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (messageError) throw messageError;
+      for (const message of messages || []) {
+        const role = String(message.role).toLowerCase();
+        if ((role === "user" || role === "customer") && !latestCustomerMessageByConversation.has(message.conversation_id)) {
+          latestCustomerMessageByConversation.set(message.conversation_id, String(message.content || ""));
+        }
+      }
     }
   } catch (error) {
     unavailable = true;
@@ -119,6 +135,11 @@ export default async function AdminAISummaryMonitor() {
                         {state}
                       </strong>
                     </div>
+                    {latestCustomerMessageByConversation.get(job.conversation_id) ? (
+                      <p style={{ color: "#eaf1fb", fontSize: 13, lineHeight: 1.5, margin: "8px 0" }}>
+                        <strong>Latest customer message:</strong> {latestCustomerMessageByConversation.get(job.conversation_id)}
+                      </p>
+                    ) : null}
                     {conversation?.summary ? (
                       <p style={{ color: "#d4dfef", fontSize: 13, lineHeight: 1.5, margin: "8px 0" }}>{conversation.summary}</p>
                     ) : (
