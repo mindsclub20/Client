@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentAdminContext } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AdminLogoutButton from "./admin-logout-button";
+import AdminQuoteApprovalButton from "./admin-quote-approval-button";
 import DashboardShell from "@/app/components/dashboard-shell";
 
 export const runtime = "nodejs";
@@ -38,7 +39,16 @@ export default async function AdminPage() {
     .order("updated_at", { ascending: false })
     .limit(30);
 
+  const { data: pendingQuotes, error: quoteError } = await supabase
+    .from("ai_quotes")
+    .select("id, conversation_id, user_id, proposed_price, scope_summary, created_at")
+    .eq("status", "pending_admin")
+    .order("created_at", { ascending: true })
+    .limit(50);
+  if (quoteError) console.error("pending quote lookup failed", { code: quoteError.code });
+
   const list = conversations || [];
+  const approvedQuoteCount = list.filter((c) => typeof c.agreed_price === "number" && c.agreed_price > 0).length;
   const activeCount = list.filter((c) => c.status === "active").length;
   const completedCount = list.filter((c) => c.status === "completed").length;
   const agreedPrices = list
@@ -109,7 +119,7 @@ export default async function AdminPage() {
             {[
               { label: "AI chats", value: String(list.length) },
               { label: "Active", value: String(activeCount) },
-              { label: "Agreed", value: String(completedCount) },
+              { label: "Approved quotes", value: String(approvedQuoteCount) },
               {
                 label: "Avg agreed price",
                 value: avgAgreed ? `₹${avgAgreed.toLocaleString("en-IN")}` : "—",
@@ -122,6 +132,35 @@ export default async function AdminPage() {
                 <p style={{ fontSize: 22, margin: "8px 0 0", fontWeight: 700 }}>{stat.value}</p>
               </div>
             ))}
+          </section>
+
+          <section style={{ marginTop: 28 }}>
+            <h2 style={{ fontSize: 20, marginBottom: 14 }}>Quotation approval queue</h2>
+            {quoteError ? (
+              <div style={{ ...CARD, color: "#ffb6a9" }}>Quote queue is unavailable. Apply the quote approval database migration before using this module.</div>
+            ) : !pendingQuotes?.length ? (
+              <div style={{ ...CARD, color: "#9fb3cf" }}>No quotations are waiting for admin approval.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {pendingQuotes.map((quote) => (
+                  <article key={quote.id} style={{ ...CARD, borderRadius: 14, padding: 18 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                      <div>
+                        <strong>Customer quotation request</strong>
+                        <p style={{ color: "#9fb3cf", fontSize: 12, margin: "6px 0" }}>Customer ID: {quote.user_id}</p>
+                        <p style={{ color: "#9fb3cf", fontSize: 13, margin: 0 }}>{quote.scope_summary}</p>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <strong style={{ color: "#d29a68", display: "block", marginBottom: 10 }}>
+                          ₹{Number(quote.proposed_price).toLocaleString("en-IN")}
+                        </strong>
+                        <AdminQuoteApprovalButton quoteId={quote.id} />
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
 
           <section style={{ marginTop: 28 }}>
