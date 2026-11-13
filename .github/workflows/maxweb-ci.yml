@@ -9,6 +9,7 @@ on:
   pull_request:
     branches:
       - main
+      - feature/ai-admin-client-dashboards
 
 permissions:
   contents: read
