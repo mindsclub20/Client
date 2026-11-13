@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  grokChat,
+  completeAI,
   BARGAIN_SYSTEM_PROMPT,
   ProviderError,
   type ChatMessage,
-} from "@/lib/ai/grok";
+} from "@/lib/ai/provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
       })),
     ];
 
-    const result = await grokChat(messages);
+    const result = await completeAI(messages);
 
     const { error: assistantMessageError } = await supabase.from("ai_messages").insert({
       conversation_id: conversationId,
