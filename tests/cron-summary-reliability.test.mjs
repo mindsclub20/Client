@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
+const vercelConfig = JSON.parse(await readFile(new URL("../vercel.json", import.meta.url), "utf8"));
 const route = await readFile(
   new URL("../app/api/cron/summarize-conversations/route.ts", import.meta.url),
   "utf8"
@@ -14,6 +15,10 @@ const migration = await readFile(
   new URL("../supabase/migrations/202611130002_ai_summary_job_queue.sql", import.meta.url),
   "utf8"
 );
+
+test("Vercel Hobby cron runs no more than once per day", () => {
+  assert.deepEqual(vercelConfig.crons, [{ path: "/api/cron/summarize-conversations", schedule: "0 0 * * *" }]);
+});
 
 test("cron requires a configured bearer secret and rejects the Vercel header as authentication", () => {
   assert.match(route, /CRON_SECRET/);
