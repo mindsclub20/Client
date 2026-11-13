@@ -266,7 +266,7 @@ async function callGeminiOnce(
 async function callGemini(
   apiKey: string,
   messages: ChatMessage[],
-  options?: { temperature?: number }
+  options?: { model?: string; temperature?: number }
 ): Promise<ProviderResult> {
   let lastError: ProviderError | undefined;
 
