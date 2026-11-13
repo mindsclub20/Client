@@ -22,7 +22,7 @@ const PANEL = {
 function getJobState(job: SummaryJob, now: number) {
   if (job.completed_at) return "Completed";
   if (job.lease_until && new Date(job.lease_until).getTime() > now) return "Processing";
-  if (job.last_error && new Date(job.next_attempt_at).getTime() > now) return "Retry scheduled";
+  if (job.last_error) return "Failed / retrying";
   return "Pending";
 }
 
@@ -68,7 +68,7 @@ export default async function AdminAISummaryMonitor() {
     Pending: 0,
     Processing: 0,
     Completed: 0,
-    "Retry scheduled": 0,
+    "Failed / retrying": 0,
   };
   for (const job of jobs) counts[getJobState(job, now) as keyof typeof counts] += 1;
 
@@ -115,7 +115,7 @@ export default async function AdminAISummaryMonitor() {
                           Conversation: {job.conversation_id} · Customer: {conversation?.user_id || "Unavailable"}
                         </p>
                       </div>
-                      <strong style={{ color: state === "Completed" ? "#55d6ad" : state === "Retry scheduled" ? "#ffbd75" : "#9fb3cf" }}>
+                      <strong style={{ color: state === "Completed" ? "#55d6ad" : state === "Failed / retrying" ? "#ffbd75" : "#9fb3cf" }}>
                         {state}
                       </strong>
                     </div>
@@ -126,7 +126,7 @@ export default async function AdminAISummaryMonitor() {
                     )}
                     <p style={{ color: "#9fb3cf", fontSize: 12, margin: "8px 0 0" }}>
                       Attempts: {job.attempts} · Last queue update: {new Date(job.updated_at).toLocaleString("en-IN")}
-                      {state === "Retry scheduled" ? ` · Next retry: ${new Date(job.next_attempt_at).toLocaleString("en-IN")}` : ""}
+                      {state === "Failed / retrying" ? ` · Next retry: ${new Date(job.next_attempt_at).toLocaleString("en-IN")}` : ""}
                     </p>
                     {job.last_error ? (
                       <p style={{ color: "#ffb6a9", fontSize: 12, margin: "7px 0 0" }}>Last error: {job.last_error}</p>
