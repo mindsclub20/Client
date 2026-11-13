@@ -46,16 +46,21 @@ export default async function AdminPage() {
     .order("created_at", { ascending: true })
     .limit(50);
   if (quoteError) console.error("pending quote lookup failed", { code: quoteError.code });
+  const { data: approvedQuotes, error: approvedQuoteError } = await supabase
+    .from("ai_quotes")
+    .select("conversation_id, proposed_price")
+    .eq("status", "approved")
+    .limit(1000);
+  if (approvedQuoteError) console.error("approved quote lookup failed", { code: approvedQuoteError.code });
 
   const list = conversations || [];
-  const approvedQuoteCount = list.filter((c) => typeof c.agreed_price === "number" && c.agreed_price > 0).length;
+  const approvedPriceByConversation = new Map((approvedQuotes || []).map((quote) => [quote.conversation_id, quote.proposed_price]));
+  const approvedPrices = (approvedQuotes || []).map((quote) => quote.proposed_price);
+  const approvedQuoteCount = approvedPrices.length;
   const activeCount = list.filter((c) => c.status === "active").length;
-  const agreedPrices = list
-    .map((c) => c.agreed_price)
-    .filter((p): p is number => typeof p === "number" && p > 0);
   const avgAgreed =
-    agreedPrices.length > 0
-      ? Math.round(agreedPrices.reduce((a, b) => a + b, 0) / agreedPrices.length)
+    approvedPrices.length > 0
+      ? Math.round(approvedPrices.reduce((a, b) => a + b, 0) / approvedPrices.length)
       : null;
 
   return (
@@ -218,8 +223,8 @@ export default async function AdminPage() {
                         </span>
                       </div>
                       <div style={{ fontSize: 14, color: "#d29a68" }}>
-                        {c.agreed_price
-                          ? `Agreed ₹${Number(c.agreed_price).toLocaleString("en-IN")}`
+                        {approvedPriceByConversation.has(c.id)
+                          ? `Approved ₹${Number(approvedPriceByConversation.get(c.id)).toLocaleString("en-IN")}`
                           : `Current ₹${Number(c.current_price || 15000).toLocaleString("en-IN")}`}
                       </div>
                     </div>
