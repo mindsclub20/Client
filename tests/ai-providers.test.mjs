@@ -13,16 +13,20 @@ test("MAXWEB uses only MAXWEB_AI_API_KEY2 for Gemini", () => {
   assert.doesNotMatch(source, /callGlm\(/);
 });
 
-test("Gemini uses the configured current model default", () => {
+test("Gemini uses the configured current model default and fallbacks", () => {
   assert.match(source, /DEFAULT_GEMINI_MODEL\s*=\s*"gemini-3\.8-flash"/);
+  assert.match(source, /GEMINI_MODEL_FALLBACKS/);
+  assert.match(source, /gemini-3\.6-flash/);
+  assert.match(source, /gemini-3\.5-flash-lite/);
   assert.match(source, /MAXWEB_GEMINI_MODEL/);
   assert.match(source, /GEMINI_BASE\s*=\s*"https:\/\/generativelanguage\.googleapis\.com\/v1beta"/);
   assert.match(source, /models\/\$\{encodeURIComponent\(model\)\}:generateContent/);
   assert.match(source, /"x-goog-api-key": apiKey/);
+  assert.match(source, /generationConfig/);
 });
 
 test("Gemini retries only transient failures with bounded attempts", () => {
-  assert.match(source, /GEMINI_MAX_ATTEMPTS\s*=\s*3/);
+  assert.match(source, /GEMINI_MAX_ATTEMPTS\s*=\s*4/);
   assert.match(source, /backoffMs/);
   assert.match(source, /Gemini transient failure; retrying/);
   assert.match(source, /httpStatus === 401/);
