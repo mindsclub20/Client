@@ -207,7 +207,6 @@ export default function ClientDashboard({
   const [currentPrice, setCurrentPrice] = useState(15000);
   const [agreedPrice, setAgreedPrice] = useState<number | null>(null);
   const [quoteStatus, setQuoteStatus] = useState<"none" | "pending_admin" | "approved" | "rejected">("none");
-  const [quoteId, setQuoteId] = useState<string | null>(null);
   const [quoteBusy, setQuoteBusy] = useState(false);
   const [quoteMessage, setQuoteMessage] = useState("");
   const [showChips, setShowChips] = useState(true);
@@ -224,7 +223,6 @@ export default function ClientDashboard({
       .then((data) => {
         const quote = data?.quote;
         if (!quote) return;
-        setQuoteId(quote.id);
         setQuoteStatus(quote.status);
         setConversationId(quote.conversation_id);
         setCurrentPrice(quote.proposed_price);
@@ -254,10 +252,6 @@ export default function ClientDashboard({
         setMessages((m) => [...m, { role: "assistant", content: friendlyAiError(data) }]);
       } else {
         if (typeof data.currentPrice === "number") setCurrentPrice(data.currentPrice);
-        if (data.agreedPrice) {
-          setAgreedPrice(data.agreedPrice);
-          setQuoteStatus("approved");
-        }
         setMessages((m) => [
           ...m,
           { role: "assistant", content: data.reply || "…" },
@@ -305,7 +299,6 @@ export default function ClientDashboard({
           : "Could not submit the quotation. Please try again.");
         return;
       }
-      setQuoteId(data.quote?.id || null);
       setQuoteStatus("pending_admin");
       setQuoteMessage(data.message || "Quotation sent for admin approval.");
     } catch {
