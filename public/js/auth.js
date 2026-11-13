@@ -1,6 +1,9 @@
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
+  var form = $("af");
+  if (!form) return;
+
   var mode = "login", user = null, busy = false;
 
   function api(path, body) {
@@ -75,7 +78,7 @@
 
   function setBusy(value) { busy = value; $("go").classList.toggle("ld", value); $("go").disabled = value; }
 
-  $("af").addEventListener("submit", function (event) {
+  form.addEventListener("submit", function (event) {
     event.preventDefault();
     if (busy) return;
     setErr("");
