@@ -206,6 +206,10 @@ export default function ClientDashboard({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [currentPrice, setCurrentPrice] = useState(15000);
   const [agreedPrice, setAgreedPrice] = useState<number | null>(null);
+  const [quoteStatus, setQuoteStatus] = useState<"none" | "pending_admin" | "approved" | "rejected">("none");
+  const [quoteId, setQuoteId] = useState<string | null>(null);
+  const [quoteBusy, setQuoteBusy] = useState(false);
+  const [quoteMessage, setQuoteMessage] = useState("");
   const [showChips, setShowChips] = useState(true);
   const [copied, setCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -213,6 +217,21 @@ export default function ClientDashboard({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
+
+  useEffect(() => {
+    fetch("/api/ai/quote/status", { credentials: "same-origin", cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        const quote = data?.quote;
+        if (!quote) return;
+        setQuoteId(quote.id);
+        setQuoteStatus(quote.status);
+        setConversationId(quote.conversation_id);
+        setCurrentPrice(quote.proposed_price);
+        if (quote.status === "approved") setAgreedPrice(quote.proposed_price);
+      })
+      .catch(() => setQuoteMessage("Could not load quotation status."));
+  }, []);
 
   async function sendText(text: string) {
     const cleaned = text.trim();
@@ -235,7 +254,10 @@ export default function ClientDashboard({
         setMessages((m) => [...m, { role: "assistant", content: friendlyAiError(data) }]);
       } else {
         if (typeof data.currentPrice === "number") setCurrentPrice(data.currentPrice);
-        if (data.agreedPrice) setAgreedPrice(data.agreedPrice);
+        if (data.agreedPrice) {
+          setAgreedPrice(data.agreedPrice);
+          setQuoteStatus("approved");
+        }
         setMessages((m) => [
           ...m,
           { role: "assistant", content: data.reply || "…" },
@@ -254,11 +276,43 @@ export default function ClientDashboard({
     }
   }
 
-  function copyUpi() {
-    navigator.clipboard?.writeText(FAMPAY_UPI).then(() => {
+  async function copyUpi() {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("clipboard unavailable");
+      await navigator.clipboard.writeText(FAMPAY_UPI);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } catch {
+      setQuoteMessage("Clipboard access is unavailable in this browser.");
+    }
+  }
+
+  async function requestQuoteApproval() {
+    if (!conversationId || quoteBusy || quoteStatus === "pending_admin" || quoteStatus === "approved") return;
+    setQuoteBusy(true);
+    setQuoteMessage("");
+    try {
+      const response = await fetch("/api/ai/quote/accept", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setQuoteMessage(data.error === "quote_already_submitted"
+          ? "A quotation request already exists for this conversation."
+          : "Could not submit the quotation. Please try again.");
+        return;
+      }
+      setQuoteId(data.quote?.id || null);
+      setQuoteStatus("pending_admin");
+      setQuoteMessage(data.message || "Quotation sent for admin approval.");
+    } catch {
+      setQuoteMessage("Could not reach the server. Please try again.");
+    } finally {
+      setQuoteBusy(false);
+    }
   }
 
   const waMsg = encodeURIComponent(
@@ -286,12 +340,13 @@ export default function ClientDashboard({
               <button
                 type="button"
                 onClick={async () => {
-                  await fetch("/api/auth/sign-out", {
+                  const response = await fetch("/api/auth/sign-out", {
                     method: "POST",
                     credentials: "same-origin",
                     headers: { "Content-Type": "application/json" },
                     body: "{}",
                   });
+                  if (!response.ok) return;
                   window.location.replace("/#login");
                 }}
                 style={styles.btn}
@@ -440,39 +495,59 @@ export default function ClientDashboard({
           </section>
 
           <section style={card}>
-            <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Payment (FamPay)</h2>
-            <p style={{ color: "#9fb3cf", fontSize: 14, marginTop: 0 }}>
-              Pay only after your quote is confirmed on WhatsApp. Same UPI as the homepage.
-            </p>
-            <div
-              style={{
-                border: "1px solid #ffffff1f",
-                borderRadius: 12,
-                padding: 16,
-                background: "#0a2147",
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-              }}
-            >
-              <div>
-                <p style={{ margin: 0, fontSize: 12, color: "#9fb3cf" }}>FamPay UPI ID</p>
-                <code style={{ fontSize: 16, color: "#eaf1fb" }}>{FAMPAY_UPI}</code>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button type="button" onClick={copyUpi} style={styles.btn}>
-                  {copied ? "Copied" : "Copy ID"}
-                </button>
-                <a
-                  href={`upi://pay?pa=${encodeURIComponent(FAMPAY_UPI)}&pn=MAXWEB&cu=INR`}
-                  style={{ ...styles.btn, textDecoration: "none" }}
+            <h2 style={{ margin: "0 0 8px", fontSize: 18 }}>Quotation & payment</h2>
+            {quoteStatus === "approved" && agreedPrice ? (
+              <>
+                <p style={{ color: "#2fb5ae", fontSize: 14, marginTop: 0 }}>
+                  Admin approved your quotation for ₹{agreedPrice.toLocaleString("en-IN")}. Payment is now enabled.
+                </p>
+                <div
+                  style={{
+                    border: "1px solid #ffffff1f",
+                    borderRadius: 12,
+                    padding: 16,
+                    background: "#0a2147",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                  }}
                 >
-                  Pay now
-                </a>
-              </div>
-            </div>
+                  <div>
+                    <p style={{ margin: 0, fontSize: 12, color: "#9fb3cf" }}>FamPay UPI ID</p>
+                    <code style={{ fontSize: 16, color: "#eaf1fb" }}>{FAMPAY_UPI}</code>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button type="button" onClick={copyUpi} style={styles.btn}>
+                      {copied ? "Copied" : "Copy ID"}
+                    </button>
+                    <a
+                      href={`upi://pay?pa=${encodeURIComponent(FAMPAY_UPI)}&pn=MAXWEB&cu=INR&am=${agreedPrice}`}
+                      style={{ ...styles.btn, textDecoration: "none" }}
+                    >
+                      Pay ₹{agreedPrice.toLocaleString("en-IN")}
+                    </a>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ color: "#9fb3cf", fontSize: 14, marginTop: 0 }}>
+                  Payment stays disabled until a MAXWEB admin approves your quotation.
+                </p>
+                {quoteStatus === "pending_admin" ? (
+                  <p style={{ color: "#d29a68", fontSize: 14 }}>Quotation submitted. Waiting for admin approval.</p>
+                ) : conversationId ? (
+                  <button type="button" onClick={requestQuoteApproval} disabled={quoteBusy} style={quoteBusy ? styles.btnDisabled : styles.btn}>
+                    {quoteBusy ? "Submitting…" : `Request approval for ₹${currentPrice.toLocaleString("en-IN")}`}
+                  </button>
+                ) : (
+                  <p style={{ color: "#9fb3cf", fontSize: 13 }}>Discuss your website requirements with the AI consultant to prepare a quotation.</p>
+                )}
+              </>
+            )}
+            {quoteMessage ? <p role="status" style={{ color: "#9fb3cf", fontSize: 13 }}>{quoteMessage}</p> : null}
           </section>
         </div>
       </div>
