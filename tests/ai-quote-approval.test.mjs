@@ -45,6 +45,7 @@ test("quotation schema prevents customer-side approval and restricts approval to
   assert.match(migration, /security definer/i);
   assert.match(migration, /auth\.uid\(\) = user_id/);
   assert.match(migration, /is distinct from 'admin'/);
+  assert.match(migration, /protect_ai_conversation_approval_fields/);
   assert.match(migration, /status in \('pending_admin', 'approved', 'rejected'\)/);
 });
 
