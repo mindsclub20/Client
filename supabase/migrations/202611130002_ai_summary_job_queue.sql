@@ -70,8 +70,8 @@ begin
         or c.updated_at > c.summary_generated_at
       )
     order by c.summary_generated_at asc nulls first, c.updated_at asc
-    for update of j skip locked
     limit greatest(1, least(coalesce(p_limit, 3), 10))
+    for update of j skip locked
   ),
   claimed as (
     update public.ai_summary_jobs j
