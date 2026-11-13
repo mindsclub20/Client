@@ -168,7 +168,7 @@ function extractGeminiText(data: any): string {
 async function callGeminiOnce(
   apiKey: string,
   messages: ChatMessage[],
-  options?: { temperature?: number }
+  options?: { model?: string; temperature?: number }
 ): Promise<ProviderResult> {
   const model = normalizeGeminiModel(options?.model || process.env.MAXWEB_GEMINI_MODEL);
   const systemText = messages
