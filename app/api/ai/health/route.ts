@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { listConfiguredProviders } from "@/lib/ai/provider";
+import { normalizeGeminiModel } from "@/lib/ai/grok";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,8 +32,7 @@ export async function GET() {
       );
     }
 
-    const model = (process.env.MAXWEB_GEMINI_MODEL?.trim() || "gemini-3.8-flash")
-      .replace(/^models\//, "");
+    const model = normalizeGeminiModel(process.env.MAXWEB_GEMINI_MODEL);
     const controller = AbortSignal.timeout(8_000);
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}`,
