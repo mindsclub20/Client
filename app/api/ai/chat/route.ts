@@ -13,6 +13,7 @@ export const maxDuration = 60;
 const MAX_MESSAGE_LENGTH = 4_000;
 const AI_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const AI_RATE_LIMIT_MAX_MESSAGES = 10;
+const HISTORY_LIMIT = 12;
 
 function statusForCode(code: string): number {
   switch (code) {
@@ -137,8 +138,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "conversation_closed" }, { status: 409 });
     }
 
-    // Persist the user turn before calling providers so a later failure still
-    // keeps the conversation history. Never write a fake assistant reply on failure.
     const { error: userMessageError } = await supabase.from("ai_messages").insert({
       conversation_id: conversationId,
       role: "user",
@@ -154,7 +153,7 @@ export async function POST(request: Request) {
       .select("role, content")
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(HISTORY_LIMIT);
     if (historyError) {
       console.error("load conversation history failed", { conversationId, code: historyError.code });
       return NextResponse.json({ error: "history_load_failed", conversationId }, { status: 500 });
@@ -168,7 +167,10 @@ export async function POST(request: Request) {
       })),
     ];
 
-    const result = await completeAI(messages);
+    const result = await completeAI(messages, {
+      temperature: 0.5,
+      maxOutputTokens: 280,
+    });
 
     const { error: assistantMessageError } = await supabase.from("ai_messages").insert({
       conversation_id: conversationId,
@@ -196,7 +198,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // AI output is advisory only. It must never approve a quote or complete a project.
     const updates: Record<string, unknown> = {
       current_price: currentPrice,
       updated_at: new Date().toISOString(),
@@ -244,7 +245,6 @@ export async function POST(request: Request) {
           ? err.message
           : "unknown";
 
-    // Never log secrets; message from ProviderError is already sanitized.
     console.error("AI chat error", {
       code: err instanceof ProviderError ? err.code : "server_error",
       provider: err instanceof ProviderError ? err.provider : undefined,
