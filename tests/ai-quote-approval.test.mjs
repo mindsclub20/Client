@@ -14,7 +14,7 @@ test("AI-generated wording cannot approve or complete a client quotation", () =>
 });
 
 test("chat response does not represent an AI reply as customer approval", () => {
-  assert.match(route, /agreedPrice:\s*conversation\.agreed_price/);
+  assert.doesNotMatch(route, /agreedPrice:\s*conversation\.agreed_price/);
   assert.match(route, /status:\s*conversation\.status/);
 });
 
