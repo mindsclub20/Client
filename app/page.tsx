@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -21,5 +22,11 @@ const markup = body
   .replaceAll("Another website built by MAXWEB.", "A creative portfolio concept for presenting selected work and capabilities.");
 
 export default function HomePage() {
-  return <div dangerouslySetInnerHTML={{ __html: markup }} />;
+  return (
+    <>
+      <div dangerouslySetInnerHTML={{ __html: markup }} />
+      <Script src="/js/script.js" strategy="afterInteractive" />
+      <Script src="/js/auth.js" strategy="afterInteractive" />
+    </>
+  );
 }
