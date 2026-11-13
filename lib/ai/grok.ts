@@ -5,7 +5,10 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 
 export function normalizeGeminiModel(value?: string): string {
-  const model = (value?.trim() || DEFAULT_GEMINI_MODEL).replace(/^models\\//, "");
+  const configuredModel = value?.trim() || DEFAULT_GEMINI_MODEL;
+  const model = configuredModel.startsWith("models/")
+    ? configuredModel.slice("models/".length)
+    : configuredModel;
   if (!/^[A-Za-z0-9._-]+$/.test(model)) {
     throw new ProviderError(
       "provider_error",
