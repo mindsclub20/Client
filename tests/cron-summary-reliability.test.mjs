@@ -15,10 +15,11 @@ const migration = await readFile(
   "utf8"
 );
 
-test("cron requires the configured bearer secret and rejects the Vercel header as authentication", () => {
+test("cron requires a configured bearer secret and rejects the Vercel header as authentication", () => {
   assert.match(route, /CRON_SECRET/);
-  assert.match(route, /Bearer \${cronSecret}/);
+  assert.match(route, /authorization\.slice\("Bearer "\.length\)/);
   assert.doesNotMatch(route, /x-vercel-cron/);
+  assert.match(route, /if \(!expected \|\| !authorization\.startsWith\("Bearer "\)\) return false/);
 });
 
 test("summary history uses the newest messages and restores chronological order", () => {
