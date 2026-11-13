@@ -5,6 +5,8 @@ import AdminLogoutButton from "./admin-logout-button";
 import AdminQuoteApprovalButton from "./admin-quote-approval-button";
 import DashboardShell from "@/app/components/dashboard-shell";
 import AdminAISummaryMonitor from "./ai-summary-monitor";
+import AdminAIStatusCard from "./ai-status-card";
+import AdminAIConversationsPanel from "./ai-conversations-panel";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,11 +36,9 @@ export default async function AdminPage() {
   const supabase = await createSupabaseServerClient();
   const { data: conversations } = await supabase
     .from("ai_conversations")
-    .select(
-      "id, user_id, title, status, website_type, starting_price, current_price, agreed_price, summary, created_at, updated_at"
-    )
+    .select("id, status")
     .order("updated_at", { ascending: false })
-    .limit(30);
+    .limit(40);
 
   const { data: pendingQuotes, error: quoteError } = await supabase
     .from("ai_quotes")
@@ -47,6 +47,7 @@ export default async function AdminPage() {
     .order("created_at", { ascending: true })
     .limit(50);
   if (quoteError) console.error("pending quote lookup failed", { code: quoteError.code });
+
   const { data: approvedQuotes, error: approvedQuoteError } = await supabase
     .from("ai_quotes")
     .select("conversation_id, proposed_price")
@@ -55,7 +56,9 @@ export default async function AdminPage() {
   if (approvedQuoteError) console.error("approved quote lookup failed", { code: approvedQuoteError.code });
 
   const list = conversations || [];
-  const approvedPriceByConversation = new Map((approvedQuotes || []).map((quote) => [quote.conversation_id, quote.proposed_price]));
+  const approvedPriceByConversation = new Map(
+    (approvedQuotes || []).map((quote) => [quote.conversation_id, quote.proposed_price])
+  );
   const approvedPrices = (approvedQuotes || []).map((quote) => quote.proposed_price);
   const approvedQuoteCount = approvedPrices.length;
   const activeCount = list.filter((c) => c.status === "active").length;
@@ -113,6 +116,8 @@ export default async function AdminPage() {
             </p>
           </section>
 
+          <AdminAIStatusCard />
+
           <section
             style={{
               marginTop: 24,
@@ -142,18 +147,34 @@ export default async function AdminPage() {
           <section style={{ marginTop: 28 }}>
             <h2 style={{ fontSize: 20, marginBottom: 14 }}>Quotation approval queue</h2>
             {quoteError ? (
-              <div style={{ ...CARD, color: "#ffb6a9" }}>Quote queue is unavailable. Apply the quote approval database migration before using this module.</div>
+              <div style={{ ...CARD, color: "#ffb6a9" }}>
+                Quote queue is unavailable. Apply the quote approval database migration before using
+                this module.
+              </div>
             ) : !pendingQuotes?.length ? (
-              <div style={{ ...CARD, color: "#9fb3cf" }}>No quotations are waiting for admin approval.</div>
+              <div style={{ ...CARD, color: "#9fb3cf" }}>
+                No quotations are waiting for admin approval.
+              </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {pendingQuotes.map((quote) => (
                   <article key={quote.id} style={{ ...CARD, borderRadius: 14, padding: 18 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        flexWrap: "wrap",
+                        gap: 12,
+                      }}
+                    >
                       <div>
                         <strong>Customer quotation request</strong>
-                        <p style={{ color: "#9fb3cf", fontSize: 12, margin: "6px 0" }}>Customer ID: {quote.user_id}</p>
-                        <p style={{ color: "#9fb3cf", fontSize: 13, margin: 0 }}>{quote.scope_summary}</p>
+                        <p style={{ color: "#9fb3cf", fontSize: 12, margin: "6px 0" }}>
+                          Customer ID: {quote.user_id}
+                        </p>
+                        <p style={{ color: "#9fb3cf", fontSize: 13, margin: 0 }}>
+                          {quote.scope_summary}
+                        </p>
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <strong style={{ color: "#d29a68", display: "block", marginBottom: 10 }}>
@@ -170,98 +191,9 @@ export default async function AdminPage() {
 
           <AdminAISummaryMonitor />
 
-          <section style={{ marginTop: 28 }}>
-            <h2 style={{ fontSize: 20, marginBottom: 14 }}>AI client interactions & bargains</h2>
-            {list.length === 0 ? (
-              <div
-                style={{
-                  ...CARD,
-                  borderStyle: "dashed",
-                  color: "#9fb3cf",
-                  textAlign: "center",
-                  padding: 28,
-                }}
-              >
-                <p style={{ margin: "0 0 8px", fontSize: 16, color: "#eaf1fb" }}>
-                  No AI conversations yet
-                </p>
-                <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
-                  When clients use the AI consultant on <strong>/client</strong>, their
-                  website-type analysis, price negotiation (₹15,000 → floor ₹7,000), and
-                  agreed prices will appear here.
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {list.map((c) => (
-                  <article key={c.id} style={{ ...CARD, borderRadius: 14, padding: 18 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        flexWrap: "wrap",
-                        gap: 10,
-                      }}
-                    >
-                      <div>
-                        <strong style={{ fontSize: 15 }}>
-                          {c.website_type
-                            ? c.website_type.charAt(0).toUpperCase() +
-                              c.website_type.slice(1)
-                            : c.title || "Consultation"}
-                        </strong>
-                        <span
-                          style={{
-                            marginLeft: 10,
-                            fontSize: 12,
-                            color:
-                              c.status === "completed"
-                                ? "#2fb5ae"
-                                : c.status === "active"
-                                  ? "#9fb3cf"
-                                  : "#9fb3cf",
-                          }}
-                        >
-                          {c.status}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 14, color: "#d29a68" }}>
-                        {approvedPriceByConversation.has(c.id)
-                          ? `Approved ₹${Number(approvedPriceByConversation.get(c.id)).toLocaleString("en-IN")}`
-                          : `Current ₹${Number(c.current_price || 15000).toLocaleString("en-IN")}`}
-                      </div>
-                    </div>
-                    {c.summary ? (
-                      <p
-                        style={{
-                          color: "#9fb3cf",
-                          fontSize: 13,
-                          margin: "10px 0 0",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {c.summary}
-                      </p>
-                    ) : (
-                      <p
-                        style={{
-                          color: "#9fb3cf",
-                          fontSize: 13,
-                          margin: "10px 0 0",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        No summary yet — conversation still active.
-                      </p>
-                    )}
-                    <p style={{ color: "#9fb3cf", fontSize: 12, margin: "8px 0 0" }}>
-                      Updated {new Date(c.updated_at).toLocaleString("en-IN")}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
+          <AdminAIConversationsPanel
+            approvedPriceByConversation={approvedPriceByConversation}
+          />
 
           <section style={{ marginTop: 32 }}>
             <h2 style={{ fontSize: 20, marginBottom: 14 }}>Infrastructure links</h2>
@@ -301,16 +233,21 @@ export default async function AdminPage() {
               gap: 16,
             }}
           >
-            {["Enquiries", "Customers", "Projects", "Quotations", "Invoices & payments", "After-sales support"].map(
-              (item) => (
-                <article key={item} style={{ ...CARD, borderRadius: 14, padding: 20 }}>
-                  <h3 style={{ margin: 0, fontSize: 16 }}>{item}</h3>
-                  <p style={{ color: "#9fb3cf", fontSize: 13, marginBottom: 0 }}>
-                    Placeholder module — not connected yet
-                  </p>
-                </article>
-              )
-            )}
+            {[
+              "Enquiries",
+              "Customers",
+              "Projects",
+              "Quotations",
+              "Invoices & payments",
+              "After-sales support",
+            ].map((item) => (
+              <article key={item} style={{ ...CARD, borderRadius: 14, padding: 20 }}>
+                <h3 style={{ margin: 0, fontSize: 16 }}>{item}</h3>
+                <p style={{ color: "#9fb3cf", fontSize: 13, marginBottom: 0 }}>
+                  Placeholder module — not connected yet
+                </p>
+              </article>
+            ))}
           </section>
         </div>
       </main>
