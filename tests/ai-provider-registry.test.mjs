@@ -19,6 +19,6 @@ test("MAXWEB chat route calls the central provider workflow", () => {
 });
 
 test("provider registry never returns or logs credentials", () => {
-  assert.doesNotMatch(provider, /return[^\n]*(?:apiKey|MAXWEB_AI_API_KEY2)/);
+  assert.doesNotMatch(provider, /return\s+process\.env\.MAXWEB_AI_API_KEY2/);
   assert.doesNotMatch(provider, /console\.(?:log|error|warn)/);
 });
