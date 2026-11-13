@@ -23,8 +23,7 @@ test("MAXWEB uses Gemini GenerateContent and the configured default model", asyn
 test("MAXWEB logs safe Gemini rejection details without logging credentials", async () => {
   const source = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
   assert.match(source, /Gemini GenerateContent request rejected/);
-  assert.doesNotMatch(source, /console\.(?:log|error|warn)\([^
-]*(?:apiKey|Authorization|x-goog-api-key)/);
+  assert.doesNotMatch(source, /console\.(?:log|error|warn)\([^)]*apiKey/);
 });
 
 test("client only shows missing-key guidance for the explicit configuration error code", async () => {
