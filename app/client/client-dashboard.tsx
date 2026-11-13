@@ -222,11 +222,18 @@ export default function ClientDashboard({
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
         const quote = data?.quote;
-        if (!quote) return;
-        setQuoteStatus(quote.status);
-        setConversationId(quote.conversation_id);
-        setCurrentPrice(quote.proposed_price);
-        if (quote.status === "approved") setAgreedPrice(quote.proposed_price);
+        if (quote) {
+          setQuoteStatus(quote.status);
+          setConversationId(quote.conversation_id);
+          setCurrentPrice(quote.proposed_price);
+          if (quote.status === "approved") setAgreedPrice(quote.proposed_price);
+          return;
+        }
+        const conversation = data?.conversation;
+        if (conversation) {
+          setConversationId(conversation.id);
+          if (typeof conversation.current_price === "number") setCurrentPrice(conversation.current_price);
+        }
       })
       .catch(() => setQuoteMessage("Could not load quotation status."));
   }, []);
