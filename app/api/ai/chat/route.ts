@@ -70,13 +70,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (message.length > MAX_MESSAGE_LENGTH) {
-      return NextResponse.json(
-        { error: "message_too_long", maxLength: MAX_MESSAGE_LENGTH },
-        { status: 413 }
-      );
-    }
-
     const { data: userConversations, error: conversationsError } = await supabase
       .from("ai_conversations")
       .select("id")
