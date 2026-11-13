@@ -44,6 +44,32 @@ create policy "Admins can update quotes"
 
 grant select, update on public.ai_quotes to authenticated;
 
+
+-- Customers may update consultation details, but only admins may alter
+-- quotation approval fields on the existing conversation table.
+create or replace function public.protect_ai_conversation_approval_fields()
+returns trigger
+language plpgsql
+set search_path = public, auth
+as $
+begin
+  if (auth.jwt() -> 'app_metadata' ->> 'role') is distinct from 'admin'
+     and (
+       new.agreed_price is distinct from old.agreed_price
+       or new.status is distinct from old.status
+     ) then
+    raise exception 'quotation approval fields are admin-controlled';
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists protect_ai_conversation_approval_fields
+  on public.ai_conversations;
+create trigger protect_ai_conversation_approval_fields
+before update on public.ai_conversations
+for each row execute function public.protect_ai_conversation_approval_fields();
+
 create or replace function public.submit_ai_quote(p_conversation_id uuid)
 returns public.ai_quotes
 language plpgsql
