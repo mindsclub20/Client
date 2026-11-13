@@ -30,9 +30,7 @@ returns table (
   conversation_id uuid,
   source_updated_at timestamptz,
   claim_token uuid,
-  website_type text,
-  current_price integer,
-  status text
+  conversation_data jsonb
 )
 language plpgsql
 security definer
@@ -86,7 +84,7 @@ begin
     returning j.conversation_id, j.source_updated_at, j.claim_token
   )
   select cl.conversation_id, cl.source_updated_at, cl.claim_token,
-         c.website_type, c.current_price, c.status
+         to_jsonb(c)
   from claimed cl
   join public.ai_conversations c on c.id = cl.conversation_id;
 end;
