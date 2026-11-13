@@ -12,6 +12,8 @@ test("rejects external and protocol-relative OAuth return destinations", () => {
   assert.equal(safeAuthNextPath("https://example.com"), "/#login");
   assert.equal(safeAuthNextPath("//example.com"), "/#login");
   assert.equal(safeAuthNextPath("javascript:alert(1)"), "/#login");
+  assert.equal(safeAuthNextPath("/path\\to"), "/#login");
+  assert.equal(safeAuthNextPath("/path\nheader"), "/#login");
   assert.equal(safeAuthNextPath(""), "/#login");
 });
 
