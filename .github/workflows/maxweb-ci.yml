@@ -25,5 +25,7 @@ jobs:
         run: npm install
       - name: Run regression tests
         run: npm test
+      - name: Inspect embedded website archive
+        run: unzip -l MAXWEB.zip
       - name: Build Next.js application
         run: npm run build
