@@ -26,6 +26,26 @@
     return (res.data && res.data.message) || "Something went wrong. Please try again.";
   }
 
+  function mountGoogleSignIn() {
+    var form = $("af");
+    if (!form || $("googleSignIn")) return;
+
+    var divider = document.createElement("div");
+    divider.className = "oauth-divider";
+    divider.setAttribute("aria-hidden", "true");
+    divider.textContent = "OR";
+
+    var button = document.createElement("a");
+    button.id = "googleSignIn";
+    button.className = "google-oauth";
+    button.href = "/api/auth/sign-in/google?next=" + encodeURIComponent("/#portal");
+    button.setAttribute("aria-label", "Continue with Google");
+    button.textContent = "Continue with Google";
+
+    form.insertAdjacentElement("afterend", divider);
+    divider.insertAdjacentElement("afterend", button);
+  }
+
   function loadSession() {
     return fetch("/api/me", { credentials: "same-origin", cache: "no-store" })
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -114,5 +134,12 @@
 
   window.addEventListener("hashchange", route);
   paint();
+  mountGoogleSignIn();
+
+  var query = new URLSearchParams(window.location.search);
+  if (query.get("oauth_error") === "google") {
+    setErr("Google sign-in could not be started. Please try again or use email and password.");
+  }
+
   loadSession().then(route);
 })();
