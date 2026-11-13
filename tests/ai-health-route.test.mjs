@@ -40,3 +40,23 @@ test("chat route returns generic server errors and verifies conversation updates
   assert.match(route, /const \{ error: conversationUpdateError \} = await supabase/);
   assert.match(route, /if \(conversationUpdateError\)/);
 });
+
+
+test("chat route applies a persistent per-user message rate limit before creating conversations", async () => {
+  const route = await readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8");
+  assert.match(route, /AI_RATE_LIMIT_WINDOW_MS\s*=\s*10\s*\*\s*60\s*\*\s*1000/);
+  assert.match(route, /AI_RATE_LIMIT_MAX_MESSAGES\s*=\s*10/);
+  assert.match(route, /\.eq\("user_id", user\.id\)/);
+  assert.match(route, /\.eq\("role", "user"\)/);
+  assert.match(route, /status: 429/);
+  assert.ok(route.indexOf("AI_RATE_LIMIT_MAX_MESSAGES") < route.indexOf('if (!conversationId)'));
+});
+
+test("Gemini model configuration normalizes models prefix and rejects unsafe path values", async () => {
+  const provider = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
+  const health = await readFile(new URL("../app/api/ai/health/route.ts", import.meta.url), "utf8");
+  assert.match(provider, /normalizeGeminiModel/);
+  assert.match(provider, /replace\(\/\^models\\\\\//, "normalizer strips the models/ prefix");
+  assert.match(provider, /options\?\.model/);
+  assert.match(health, /normalizeGeminiModel/);
+});
