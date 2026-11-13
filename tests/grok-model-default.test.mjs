@@ -12,7 +12,7 @@ test("MAXWEB reads only the Gemini API key from server environment", async () =>
 
 test("MAXWEB uses Gemini GenerateContent and the configured default model", async () => {
   const source = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
-  assert.match(source, /generativelanguage\.googleapis\.com\/v1beta\/models/);
+  assert.match(source, /GEMINI_BASE\s*=\s*"https:\/\/generativelanguage\.googleapis\.com\/v1beta"/);\n  assert.match(source, /models\/\$\{encodeURIComponent\(model\)\}:generateContent/);
   assert.match(source, /"x-goog-api-key": apiKey/);
   assert.match(source, /DEFAULT_GEMINI_MODEL\s*=\s*"gemini-3\.8-flash"/);
   assert.match(source, /MAXWEB_GEMINI_MODEL/);
@@ -27,6 +27,6 @@ test("MAXWEB logs safe Gemini rejection details without logging credentials", as
 
 test("client only shows missing-key guidance for the explicit configuration error code", async () => {
   const source = await readFile(new URL("../app/client/client-dashboard.tsx", import.meta.url), "utf8");
-  assert.match(source, /data\?\.error\s*===\s*"ai_not_configured"/);
+  assert.match(source, /code === "ai_not_configured"/);
   assert.doesNotMatch(source, /data\?\.message\?\.includes\(["']API key["']\)/);
 });
