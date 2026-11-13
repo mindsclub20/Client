@@ -53,7 +53,10 @@ export class ProviderError extends Error {
 }
 
 export function normalizeGeminiModel(value?: string): string {
-  const model = (value?.trim() || DEFAULT_GEMINI_MODEL).replace(/^models\//, "");
+  const configuredModel = value?.trim() || DEFAULT_GEMINI_MODEL;
+  const model = configuredModel.startsWith("models/")
+    ? configuredModel.slice("models/".length)
+    : configuredModel;
   if (!/^[A-Za-z0-9._-]+$/.test(model)) {
     throw new ProviderError(
       "provider_error",
@@ -63,7 +66,6 @@ export function normalizeGeminiModel(value?: string): string {
   }
   return model;
 }
-
 function getConfiguredKeys() {
   const geminiKey = process.env.MAXWEB_AI_API_KEY2?.trim() || "";
   return { geminiKey };
