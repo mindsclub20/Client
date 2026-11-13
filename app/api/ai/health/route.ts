@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { listConfiguredProviders } from "@/lib/ai/provider";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export async function GET() {
     const apiKey = process.env.MAXWEB_AI_API_KEY2?.trim();
     if (!apiKey) {
       return NextResponse.json(
-        { ok: false, provider: "gemini", error: "ai_not_configured" },
+        { ok: false, provider: "gemini", configured: listConfiguredProviders(), error: "ai_not_configured" },
         { status: 503 }
       );
     }
@@ -47,6 +48,7 @@ export async function GET() {
       return NextResponse.json({
         ok: true,
         provider: "gemini",
+        configured: listConfiguredProviders(),
         model,
         check: "authenticated_model_access",
       });
