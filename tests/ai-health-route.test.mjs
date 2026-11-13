@@ -56,7 +56,7 @@ test("Gemini model configuration normalizes models prefix and rejects unsafe pat
   const provider = await readFile(new URL("../lib/ai/grok.ts", import.meta.url), "utf8");
   const health = await readFile(new URL("../app/api/ai/health/route.ts", import.meta.url), "utf8");
   assert.match(provider, /normalizeGeminiModel/);
-  assert.match(provider, /replace\(\/\^models\\\\\//, "normalizer strips the models/ prefix");
+  assert.ok(provider.includes('.replace(/^models\\//, "")'), "normalizer strips the models/ prefix");
   assert.match(provider, /options\?\.model/);
   assert.match(health, /normalizeGeminiModel/);
 });
