@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       .from("ai_conversations")
       .select("id")
       .eq("user_id", user.id)
+      .order("updated_at", { ascending: false })
       .limit(500);
     if (conversationsError) {
       console.error("rate limit conversation lookup failed", { code: conversationsError.code });
