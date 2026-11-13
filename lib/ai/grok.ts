@@ -4,6 +4,18 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 
+export function normalizeGeminiModel(value?: string): string {
+  const model = (value?.trim() || DEFAULT_GEMINI_MODEL).replace(/^models\\//, "");
+  if (!/^[A-Za-z0-9._-]+$/.test(model)) {
+    throw new ProviderError(
+      "provider_error",
+      "Invalid Gemini model configuration.",
+      { provider: "gemini", retryable: false }
+    );
+  }
+  return model;
+}
+
 const GEMINI_TIMEOUT_MS = 20_000;
 const GEMINI_MAX_ATTEMPTS = 3;
 
@@ -146,7 +158,7 @@ async function callGeminiOnce(
   messages: ChatMessage[],
   options?: { temperature?: number }
 ): Promise<ProviderResult> {
-  const model = process.env.MAXWEB_GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL;
+  const model = normalizeGeminiModel(options?.model || process.env.MAXWEB_GEMINI_MODEL);
   const systemText = messages
     .filter((message) => message.role === "system")
     .map((message) => message.content)
@@ -169,7 +181,7 @@ async function callGeminiOnce(
   let response: Response;
   try {
     response = await fetch(
-      `${GEMINI_BASE}/models/${model}:generateContent`,
+      `${GEMINI_BASE}/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: "POST",
         headers: {
