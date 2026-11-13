@@ -3,11 +3,12 @@ name: MAXWEB CI
 on:
   push:
     branches:
-      - feature/ai-admin-client-dashboards
       - fix/cron-summary-reliability
+      - feature/admin-ai-conversation-monitor
   pull_request:
     branches:
       - main
+      - feature/ai-admin-client-dashboards
 
 permissions:
   contents: read
