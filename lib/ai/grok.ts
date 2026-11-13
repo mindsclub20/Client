@@ -2,21 +2,21 @@
 
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
-/** Primary stable Flash model per Google AI docs (Nov 2026). */
-export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
-
 /**
- * Ordered fallbacks when the primary model returns 404 / NOT_FOUND or is
- * capacity-constrained. Keep only documented Gemini IDs; never reintroduce GLM/xAI.
+ * Prefer the fastest lite model for chat latency; fall back to fuller Flash
+ * models if lite is unavailable or capacity-constrained.
  */
+export const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+
 export const GEMINI_MODEL_FALLBACKS = [
-  "gemini-3.8-flash",
-  "gemini-3.6-flash",
   "gemini-3.5-flash-lite",
+  "gemini-3.6-flash",
+  "gemini-3.8-flash",
 ] as const;
 
-const GEMINI_TIMEOUT_MS = 25_000;
-const GEMINI_MAX_ATTEMPTS = 4;
+const GEMINI_TIMEOUT_MS = 18_000;
+const GEMINI_MAX_ATTEMPTS = 3;
+const DEFAULT_MAX_OUTPUT_TOKENS = 320;
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";
@@ -181,10 +181,9 @@ function sleep(ms: number) {
 }
 
 function backoffMs(attempt: number): number {
-  // 0.6s, 1.2s, 2.4s, 4s max + jitter — better for 503 capacity spikes
-  const base = 600 * Math.pow(2, attempt);
-  const jitter = Math.floor(Math.random() * 300);
-  return Math.min(5_000, base + jitter);
+  const base = 400 * Math.pow(2, attempt);
+  const jitter = Math.floor(Math.random() * 200);
+  return Math.min(3_000, base + jitter);
 }
 
 function extractGeminiText(data: any): string {
@@ -202,7 +201,7 @@ async function callGeminiOnce(
   apiKey: string,
   messages: ChatMessage[],
   model: string,
-  options?: { temperature?: number }
+  options?: { temperature?: number; maxOutputTokens?: number }
 ): Promise<ProviderResult> {
   const systemText = messages
     .filter((message) => message.role === "system")
@@ -239,7 +238,8 @@ async function callGeminiOnce(
             : {}),
           contents,
           generationConfig: {
-            temperature: Math.min(1, Math.max(0, options?.temperature ?? 0.7)),
+            temperature: Math.min(1, Math.max(0, options?.temperature ?? 0.5)),
+            maxOutputTokens: options?.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
           },
         }),
         signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
@@ -309,7 +309,7 @@ async function callGeminiWithRetries(
   apiKey: string,
   messages: ChatMessage[],
   model: string,
-  options?: { temperature?: number }
+  options?: { temperature?: number; maxOutputTokens?: number }
 ): Promise<ProviderResult> {
   let lastError: ProviderError | undefined;
 
@@ -365,7 +365,7 @@ async function callGeminiWithRetries(
 async function callGemini(
   apiKey: string,
   messages: ChatMessage[],
-  options?: { model?: string; temperature?: number }
+  options?: { model?: string; temperature?: number; maxOutputTokens?: number }
 ): Promise<ProviderResult> {
   const candidates = resolveModelCandidates(options?.model);
   let lastError: ProviderError | undefined;
@@ -384,15 +384,15 @@ async function callGemini(
             });
       lastError = pe;
 
-      // Auth failure is not model-specific — stop immediately.
       if (pe.code === "gemini_auth_failed" || pe.code === "ai_not_configured") {
         throw pe;
       }
 
-      // Try next model only for not-found / hard model errors.
       const tryNext =
         pe.httpStatus === 404 ||
-        (pe.message || "").toLowerCase().includes("model unavailable");
+        (pe.message || "").toLowerCase().includes("model unavailable") ||
+        pe.code === "provider_unavailable" ||
+        pe.code === "provider_timeout";
 
       if (tryNext && i < candidates.length - 1) {
         console.warn("Gemini model failed; trying fallback model", {
@@ -400,19 +400,6 @@ async function callGemini(
           nextModel: candidates[i + 1],
           code: pe.code,
           httpStatus: pe.httpStatus,
-        });
-        continue;
-      }
-
-      // Capacity / timeout: if we still have models, optionally try next once.
-      if (
-        (pe.code === "provider_unavailable" || pe.code === "provider_timeout") &&
-        i < candidates.length - 1
-      ) {
-        console.warn("Gemini capacity issue; trying fallback model", {
-          failedModel: model,
-          nextModel: candidates[i + 1],
-          code: pe.code,
         });
         continue;
       }
@@ -430,13 +417,9 @@ async function callGemini(
   );
 }
 
-/**
- * Historical export name retained for the existing API route.
- * Gemini is the sole provider and reads only MAXWEB_AI_API_KEY2.
- */
 export async function grokChat(
   messages: ChatMessage[],
-  options?: { model?: string; temperature?: number }
+  options?: { model?: string; temperature?: number; maxOutputTokens?: number }
 ): Promise<ProviderResult> {
   const { geminiKey } = getConfiguredKeys();
 
@@ -451,22 +434,18 @@ export async function grokChat(
   return callGemini(geminiKey, messages, options);
 }
 
-export const BARGAIN_SYSTEM_PROMPT = `You are MAXWEB's expert website consultant and pricing negotiator.
-Your job:
-1. Understand what kind of website the client needs (business, portfolio, restaurant, e-commerce, landing page, custom, etc.).
-2. Ask clarifying questions about pages, features, branding, timeline, and goals.
-3. Start price discussion at ₹15,000.
-4. You may negotiate downward, but never go below ₹7,000. The absolute floor is 7000.
-5. Be professional, friendly, and concise. Keep replies under 180 words unless the client asks for detail.
-6. When you have enough information, propose a final package price and brief scope.
-7. If the client says they accept a price, acknowledge their request and explain that the quotation remains pending until a MAXWEB admin reviews and approves it. Never claim the quote is finalized, booked, or approved.
-8. Currency is Indian Rupees (₹). Always show numbers clearly.
-9. Do not invent features the client did not ask for. Do not discuss competitors by name.
-10. If the client wants to speak to a human admin instead, politely offer that option.
-
-Current negotiation rules:
-- Starting price: 15000
-- Minimum allowed: 7000
-- Prefer landing between 9000–14000 for typical brochure / small business sites.
-- You may propose prices, but cannot approve quotations or mark projects completed. Only an authorized MAXWEB admin can approve a quote after the customer's explicit acceptance.
+export const BARGAIN_SYSTEM_PROMPT = `You are MAXWEB's website consultant and pricing negotiator.
+Rules:
+1. Learn the website type (business, portfolio, restaurant, shop, landing, custom).
+2. Ask short clarifying questions when needed.
+3. Start at ₹15,000; never go below ₹7,000.
+4. Be concise (under 120 words unless asked for detail).
+5. Propose a fair package price and brief scope when ready.
+6. If the client accepts a price, say it is pending admin approval — never finalize it yourself.
+7. Currency is ₹. Do not invent features or name competitors.
+8. Offer human WhatsApp help if they prefer a person.
 `;
+
+export const SUMMARY_SYSTEM_PROMPT = `You summarize MAXWEB client AI consultations for the admin dashboard.
+Write 2–4 short sentences covering: website type, key requirements, latest discussed price (₹), and next step.
+No markdown, no bullet lists, no greeting. Plain text only. Max 80 words.`;
