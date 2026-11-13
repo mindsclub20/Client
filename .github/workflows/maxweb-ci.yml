@@ -5,6 +5,7 @@ on:
     branches:
       - feature/ai-admin-client-dashboards
       - fix/cron-summary-reliability
+      - feature/admin-ai-conversation-monitor
   pull_request:
     branches:
       - main
