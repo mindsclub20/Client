@@ -24,7 +24,8 @@ export type AIProviderStatus = {
  */
 export function getAIProvider(preferred: AIProviderId = "gemini"): AIProviderId | null {
   if (preferred !== "gemini") return null;
-  return process.env.MAXWEB_AI_API_KEY2?.trim() ? "gemini" : null;
+  const configured = Boolean(process.env.MAXWEB_AI_API_KEY2?.trim());
+  return configured ? "gemini" : null;
 }
 
 export function listConfiguredProviders(): AIProviderStatus {
