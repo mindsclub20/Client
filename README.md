@@ -12,13 +12,20 @@ MAXWEB uses a native Next.js App Router architecture on Vercel.
 - `GET /client.html` is a compatibility callback for old confirmation emails created by the retired `maxweb-one.vercel.app` site. It exchanges the same PKCE code and redirects to the portal.
 - The current production origin is `https://maxweb-new.vercel.app`. The signup API derives the callback origin from the incoming request, so production and preview deployments use their own host.
 - Keep the Supabase redirect allow-list updated for the production and preview URLs you use. The standard Confirm signup template can remain unchanged; no token-hash template customization is required for this flow.
-- Supabase Postgres remains available for future business data. No application tables are created by this migration.
+
+## AI-integrated dashboards
+- **Client** (`/client`): AI chat (Google Gemini) that analyses website needs and bargains price (start ₹15,000, floor ₹7,000). Also offers contact options for human admin.
+- **Admin** (`/admin`): AI interaction summaries, agreed/current prices by client, and quick links to GitHub, Supabase, Vercel, Hostinger, Authgear, Resend.
+- After login, clients are redirected to `/client`; admins to `/admin`.
+- Tables: `ai_conversations`, `ai_messages` (RLS enabled). Migration already applied on the MAXWEB Supabase project.
 
 ## Vercel environment variables
 - `SUPABASE_URL`: MAXWEB Supabase project URL (Production and Preview).
 - `SUPABASE_ANON_KEY`: Supabase publishable key or legacy anon key (Production and Preview).
+- `MAXWEB_AI_API_KEY2`: Google Gemini API key (server-only). Never use a `NEXT_PUBLIC_` prefix.
+- `MAXWEB_GEMINI_MODEL` (optional): Gemini model name; accepts either `gemini-model-name` or `models/gemini-model-name`.
 
-Do not expose a service-role/secret key in browser code or a `NEXT_PUBLIC_` variable. The existing Vercel variable names are supported.
+Do not expose a service-role/secret key in browser code or a `NEXT_PUBLIC_` variable. The Gemini-only integration reads `MAXWEB_AI_API_KEY2`; legacy provider variables are ignored.
 
 ## Local development
 The Vercel build extracts the original site assets from `MAXWEB.zip` into `public/`, then builds the Next.js application and API routes.

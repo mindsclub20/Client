@@ -1,6 +1,9 @@
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
+  var form = $("af");
+  if (!form) return;
+
   var mode = "login", user = null, busy = false;
 
   function api(path, body) {
@@ -46,10 +49,13 @@
 
   function route() {
     var h = window.location.hash, screen = "site";
-    // The server-protected /admin route is the source of truth; this is only
-    // a convenience redirect so administrators do not land in the client UI.
+    // Redirect authenticated users to the proper dashboard.
     if (user && user.role === "admin" && (h === "#login" || h === "#portal")) {
       window.location.replace("/admin");
+      return;
+    }
+    if (user && user.role !== "admin" && (h === "#login" || h === "#portal")) {
+      window.location.replace("/client");
       return;
     }
     if (h === "#login" || h === "#portal") screen = user ? "portal" : "login";
@@ -58,9 +64,13 @@
     $("portal").hidden = screen !== "portal";
     if (screen !== "site") window.scrollTo(0, 0);
     var a = document.querySelector(".nav .btn.ghost");
-    if (a) { a.textContent = user ? (user.role === "admin" ? "Admin dashboard" : "My portal") : "Log in"; a.setAttribute("href", user ? (user.role === "admin" ? "/admin" : "#portal") : "#login"); }
+    if (a) {
+      a.textContent = user ? (user.role === "admin" ? "Admin dashboard" : "My portal") : "Log in";
+      a.setAttribute("href", user ? (user.role === "admin" ? "/admin" : "/client") : "#login");
+    }
     if (user) {
-      $("who").textContent = user.name || user.email;
+      var who = $("who");
+      if (who) who.textContent = user.name || user.email;
       var wa = $("pwa");
       if (wa && window.MAXWEB_waLink) wa.href = window.MAXWEB_waLink("Hi MAXWEB, I am a client (" + user.email + ") and have a question about my project.");
     }
@@ -68,7 +78,7 @@
 
   function setBusy(value) { busy = value; $("go").classList.toggle("ld", value); $("go").disabled = value; }
 
-  $("af").addEventListener("submit", function (event) {
+  form.addEventListener("submit", function (event) {
     event.preventDefault();
     if (busy) return;
     setErr("");
@@ -89,7 +99,13 @@
       return loadSession().then(function () {
         setBusy(false);
         if (!user) { setErr("Signed in, but the session could not be confirmed. Check cookies and try again."); return; }
-        $("ap").value = ""; window.location.hash = "#portal"; route();
+        $("ap").value = "";
+        // Send clients to the AI dashboard; admins to control panel.
+        if (user.role === "admin") {
+          window.location.replace("/admin");
+        } else {
+          window.location.replace("/client");
+        }
       });
     }).catch(function () { setBusy(false); setErr("Could not reach the server. Check your connection and try again."); });
   });
