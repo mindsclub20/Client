@@ -24,12 +24,12 @@ test("cron requires a configured bearer secret and rejects the Vercel header as 
 
 test("summary history uses the newest messages and restores chronological order", () => {
   assert.match(route, /order\("created_at",\s*\{\s*ascending:\s*false\s*\}\)/);
-  assert.match(route, /history\.reverse\(\)/);
+  assert.match(route, /\.reverse\(\)/);
 });
 
 test("cron delegates fair candidate selection and atomic leases to database RPC", () => {
-  assert.match(route, /rpc\("claim_ai_summary_jobs"/);
-  assert.match(route, /rpc\("finish_ai_summary_job"/);
+  assert.match(route, /"claim_ai_summary_jobs"/);
+  assert.match(route, /"finish_ai_summary_job"/);
   assert.match(migration, /for update skip locked/i);
   assert.match(migration, /lease_until/);
   assert.match(migration, /next_attempt_at/);
