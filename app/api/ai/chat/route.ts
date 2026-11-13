@@ -11,6 +11,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 const MAX_MESSAGE_LENGTH = 4_000;
+const AI_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const AI_RATE_LIMIT_MAX_MESSAGES = 10;
 
 function statusForCode(code: string): number {
   switch (code) {
@@ -66,6 +68,43 @@ export async function POST(request: Request) {
         { error: "message_too_long", maxLength: MAX_MESSAGE_LENGTH },
         { status: 413 }
       );
+    }
+
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      return NextResponse.json(
+        { error: "message_too_long", maxLength: MAX_MESSAGE_LENGTH },
+        { status: 413 }
+      );
+    }
+
+    const { data: userConversations, error: conversationsError } = await supabase
+      .from("ai_conversations")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(500);
+    if (conversationsError) {
+      console.error("rate limit conversation lookup failed", { code: conversationsError.code });
+      return NextResponse.json({ error: "rate_limit_check_failed" }, { status: 503 });
+    }
+    const conversationIds = (userConversations || []).map((item) => item.id);
+    if (conversationIds.length > 0) {
+      const windowStart = new Date(Date.now() - AI_RATE_LIMIT_WINDOW_MS).toISOString();
+      const { count, error: rateLimitError } = await supabase
+        .from("ai_messages")
+        .select("id", { count: "exact", head: true })
+        .in("conversation_id", conversationIds)
+        .eq("role", "user")
+        .gte("created_at", windowStart);
+      if (rateLimitError) {
+        console.error("rate limit message lookup failed", { code: rateLimitError.code });
+        return NextResponse.json({ error: "rate_limit_check_failed" }, { status: 503 });
+      }
+      if ((count || 0) >= AI_RATE_LIMIT_MAX_MESSAGES) {
+        return NextResponse.json(
+          { error: "rate_limited", message: "Too many messages. Please wait before trying again." },
+          { status: 429, headers: { "Retry-After": "600" } }
+        );
+      }
     }
 
     if (!conversationId) {
