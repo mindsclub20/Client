@@ -25,7 +25,24 @@ export async function GET() {
       return NextResponse.json({ error: "quote_status_unavailable" }, { status: 503 });
     }
 
-    return NextResponse.json({ quote: quote || null }, {
+    let conversation = null;
+    if (!quote) {
+      const { data: latestConversation, error: conversationError } = await supabase
+        .from("ai_conversations")
+        .select("id, current_price, status")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (conversationError) {
+        console.error("active conversation lookup failed", { code: conversationError.code });
+        return NextResponse.json({ error: "conversation_status_unavailable" }, { status: 503 });
+      }
+      conversation = latestConversation;
+    }
+
+    return NextResponse.json({ quote: quote || null, conversation }, {
       headers: { "cache-control": "no-store" },
     });
   } catch {
