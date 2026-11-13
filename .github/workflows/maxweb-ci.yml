@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - fix/cron-summary-reliability
-      - fix/cron-summary-reliability
       - feature/admin-ai-conversation-monitor
   pull_request:
     branches:
