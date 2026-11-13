@@ -44,7 +44,7 @@ test("credentials never appear in logs", () => {
 
 test("failed AI calls do not insert an assistant message", () => {
   const assistantInsert = route.indexOf('role: "assistant"');
-  const geminiCall = route.indexOf("await grokChat");
+  const geminiCall = route.indexOf("await completeAI");
   assert.ok(geminiCall > 0 && assistantInsert > geminiCall);
 });
 
