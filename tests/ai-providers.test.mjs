@@ -16,7 +16,7 @@ test("MAXWEB uses only MAXWEB_AI_API_KEY2 for Gemini", () => {
 test("Gemini uses the configured current model default", () => {
   assert.match(source, /DEFAULT_GEMINI_MODEL\s*=\s*"gemini-3\.8-flash"/);
   assert.match(source, /MAXWEB_GEMINI_MODEL/);
-  assert.match(source, /generativelanguage\.googleapis\.com\/v1beta\/models/);
+  assert.match(source, /GEMINI_BASE\s*=\s*"https:\/\/generativelanguage\.googleapis\.com\/v1beta"/);\n  assert.match(source, /models\/\$\{encodeURIComponent\(model\)\}:generateContent/);
   assert.match(source, /"x-goog-api-key": apiKey/);
 });
 
