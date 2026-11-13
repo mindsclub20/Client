@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AdminLogoutButton from "./admin-logout-button";
 import AdminQuoteApprovalButton from "./admin-quote-approval-button";
 import DashboardShell from "@/app/components/dashboard-shell";
+import AdminAISummaryMonitor from "./ai-summary-monitor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -166,6 +167,8 @@ export default async function AdminPage() {
               </div>
             )}
           </section>
+
+          <AdminAISummaryMonitor />
 
           <section style={{ marginTop: 28 }}>
             <h2 style={{ fontSize: 20, marginBottom: 14 }}>AI client interactions & bargains</h2>
