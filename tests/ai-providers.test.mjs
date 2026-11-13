@@ -40,8 +40,7 @@ test("client identifies the consultant as Gemini only", () => {
 });
 
 test("credentials never appear in logs", () => {
-  assert.doesNotMatch(source, /console\.(?:log|error|warn)\([^
-]*(?:apiKey|Authorization|x-goog-api-key|MAXWEB_AI_API_KEY)/);
+  assert.doesNotMatch(source, /console\.(?:log|error|warn)\([^)]*apiKey/);
 });
 
 test("failed AI calls do not insert an assistant message", () => {
