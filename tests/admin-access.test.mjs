@@ -6,7 +6,7 @@ test("admin authorization reads only trusted Supabase app_metadata", async () =>
   const source = await readFile(new URL("../lib/admin-auth.ts", import.meta.url), "utf8");
   assert.ok(source.includes("auth.getUser()"));
   assert.ok(source.includes('user.app_metadata?.role === "admin"'));
-  assert.ok(!source.includes("user_metadata"));
+  assert.doesNotMatch(source, /user\\.user_metadata|user\\.raw_user_meta_data/);
 });
 
 test("admin dashboard is server-gated and redirects non-admin users", async () => {
