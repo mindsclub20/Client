@@ -128,9 +128,9 @@ export async function GET(request: Request) {
         {
           role: "user",
           content:
-            `Website type field: ${job.website_type || "unknown"}\n` +
-            `Current price field: ₹${job.current_price ?? 15000}\n` +
-            `Status: ${job.status || "unknown"}\n\nTranscript:\n${transcript}`,
+            `Website type field: ${job.conversation_data?.website_type || "unknown"}\n` +
+            `Current price field: ₹${job.conversation_data?.current_price ?? 15000}\n` +
+            `Status: ${job.conversation_data?.status || "unknown"}\n\nTranscript:\n${transcript}`,
         },
       ];
 
