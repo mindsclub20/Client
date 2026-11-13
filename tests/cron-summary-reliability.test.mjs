@@ -30,7 +30,7 @@ test("summary history uses the newest messages and restores chronological order"
 test("cron delegates fair candidate selection and atomic leases to database RPC", () => {
   assert.match(route, /"claim_ai_summary_jobs"/);
   assert.match(route, /"finish_ai_summary_job"/);
-  assert.match(migration, /for update skip locked/i);
+  assert.match(migration, /for update of j skip locked/i);
   assert.match(migration, /lease_until/);
   assert.match(migration, /next_attempt_at/);
 });
