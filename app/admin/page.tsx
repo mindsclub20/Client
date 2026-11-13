@@ -50,7 +50,6 @@ export default async function AdminPage() {
   const list = conversations || [];
   const approvedQuoteCount = list.filter((c) => typeof c.agreed_price === "number" && c.agreed_price > 0).length;
   const activeCount = list.filter((c) => c.status === "active").length;
-  const completedCount = list.filter((c) => c.status === "completed").length;
   const agreedPrices = list
     .map((c) => c.agreed_price)
     .filter((p): p is number => typeof p === "number" && p > 0);
