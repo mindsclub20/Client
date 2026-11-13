@@ -17,6 +17,8 @@ test("admin monitor reads protected summary jobs through the server-only admin c
   assert.match(monitor, /createSupabaseAdminClient/);
   assert.match(monitor, /\.from\("ai_summary_jobs"\)/);
   assert.match(monitor, /\.from\("ai_conversations"\)/);
+  assert.match(monitor, /\.from\("ai_messages"\)/);
+  assert.match(monitor, /Latest customer message/);
 });
 
 test("admin monitor exposes pending, processing, completed, and failed retry states", () => {
