@@ -239,7 +239,6 @@ export async function POST(request: Request) {
       conversationId,
       reply: result.content,
       currentPrice,
-      agreedPrice: conversation.agreed_price,
       status: conversation.status,
       provider: result.provider,
     });
