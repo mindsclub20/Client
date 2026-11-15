@@ -15,6 +15,10 @@ const migration = await readFile(
   new URL("../supabase/migrations/202611130002_ai_summary_job_queue.sql", import.meta.url),
   "utf8"
 );
+const claimFixMigration = await readFile(
+  new URL("../supabase/migrations/202611150001_fix_ai_summary_jobs_claim_conflict_target.sql", import.meta.url),
+  "utf8"
+);
 
 test("Vercel Hobby cron runs no more than once per day", () => {
   assert.deepEqual(vercelConfig.crons, [{ path: "/api/cron/summarize-conversations", schedule: "0 0 * * *" }]);
@@ -49,6 +53,12 @@ test("failed summary jobs use bounded exponential retry backoff", () => {
   assert.match(migration, /power\(2/);
   assert.match(migration, /3600/);
   assert.match(migration, /last_error/);
+});
+
+test("claim RPC uses its named primary-key constraint to avoid output-variable ambiguity", () => {
+  assert.match(claimFixMigration, /returns table\s*\(\s*conversation_id uuid/i);
+  assert.match(claimFixMigration, /on conflict on constraint ai_summary_jobs_pkey do update/i);
+  assert.doesNotMatch(claimFixMigration, /on conflict\s*\(\s*conversation_id\s*\)/i);
 });
 
 test("service-role Supabase client is explicitly server-only", () => {
