@@ -5,9 +5,11 @@ on:
     branches:
       - feature/ai-admin-client-dashboards
       - fix/cron-summary-reliability
+      - fix/cron-claim-ambiguous-output
   pull_request:
     branches:
       - main
+      - fix/cron-summary-reliability
 
 permissions:
   contents: read
