@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - feature/ai-admin-client-dashboards
+      - fix/cron-summary-reliability
 
 permissions:
   contents: read

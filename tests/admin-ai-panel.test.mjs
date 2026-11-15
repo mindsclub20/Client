@@ -24,11 +24,15 @@ test("admin page mounts AI status, summary monitor, and conversations panel afte
   assert.ok(panelIndex > authIndex);
 });
 
-test("AI status card probes Gemini without logging or returning the API key", () => {
+test("AI status card keeps the Gemini API key server-side and describes metadata-only checks accurately", () => {
   assert.match(statusCard, /MAXWEB_AI_API_KEY2/);
   assert.match(statusCard, /models\/\$\{encodeURIComponent\(model\)\}/);
+  assert.match(statusCard, /headers:\s*\{\s*"x-goog-api-key":\s*apiKey\s*\}/);
   assert.doesNotMatch(statusCard, /console\.(?:log|error|warn)\([^)]*apiKey/);
-  assert.doesNotMatch(statusCard, /return[\s\S]*apiKey/);
+  assert.doesNotMatch(statusCard, /\{\s*apiKey\s*\}/);
+  assert.doesNotMatch(statusCard, /(?:JSON\.stringify|NextResponse\.json|Response\.json)[\s\S]{0,160}\bapiKey\b/);
+  assert.match(statusCard, /Gemini model metadata is reachable\. GenerateContent has not been verified\./);
+  assert.doesNotMatch(statusCard, /Chat and summaries can run/);
 });
 
 test("conversations panel surfaces last customer and assistant messages plus summary state", () => {

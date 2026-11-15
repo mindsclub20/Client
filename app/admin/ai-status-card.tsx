@@ -44,8 +44,8 @@ async function probeGemini(): Promise<ProbeResult> {
       return {
         ok: true,
         model,
-        label: "Online",
-        detail: "Gemini model metadata reachable. Chat and summaries can run.",
+        label: "Metadata reachable",
+        detail: "Gemini model metadata is reachable. GenerateContent has not been verified.",
       };
     }
     if (response.status === 401 || response.status === 403) {
@@ -53,7 +53,7 @@ async function probeGemini(): Promise<ProbeResult> {
         ok: false,
         model,
         label: "Auth failed",
-        detail: "Gemini rejected the API key. Rotate MAXWEB_AI_API_KEY2.",
+        detail: "Gemini rejected the API key. Check MAXWEB_AI_API_KEY2.",
       };
     }
     if (response.status === 404) {
@@ -114,7 +114,7 @@ export default async function AdminAIStatusCard() {
           </p>
           <h2 style={{ fontSize: 18, margin: "8px 0 4px" }}>Gemini integration</h2>
           <p style={{ color: "#9fb3cf", fontSize: 13, margin: 0 }}>
-            Sole provider · key stays server-side · model probe does not spend chat tokens
+            Sole provider · key stays server-side · model metadata check only
           </p>
         </div>
         <span
