@@ -98,6 +98,9 @@ export default async function AdminPage() {
               </h1>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+              <a href="/admin/integrations" style={{ color: "#eaf1fb" }}>
+                Developer Integrations
+              </a>
               <a href="/" style={{ color: "#eaf1fb" }}>
                 View website
               </a>
