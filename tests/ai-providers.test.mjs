@@ -36,10 +36,11 @@ test("chat route uses shorter history and fast options", () => {
 });
 
 test("scheduled summary cron uses same Gemini key path", () => {
-  assert.match(cron, /summarize-conversations/);
+  assert.match(cron, /claim_ai_summary_jobs/);
   assert.match(cron, /SUMMARY_SYSTEM_PROMPT/);
   assert.match(cron, /completeAI/);
-  assert.match(cron, /CRON_SECRET|x-vercel-cron/);
+  assert.match(cron, /CRON_SECRET/);
+  assert.doesNotMatch(cron, /x-vercel-cron/);
 });
 
 test("client identifies the consultant as Gemini only", () => {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentAdminContext } from "@/lib/admin-auth";
 import { listConfiguredProviders } from "@/lib/ai/provider";
 import { normalizeGeminiModel } from "@/lib/ai/grok";
 
@@ -8,38 +8,41 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 10;
 
 /**
- * Authenticated readiness check. This calls Gemini's model metadata endpoint,
- * not generateContent, so it verifies the configured key/model without using
- * tokens for a chat completion. The key is never returned to the client.
+ * Administrator-only readiness check.
+ * Calls Gemini model metadata (not generateContent) so it verifies the key
+ * without spending chat tokens. The key is never returned.
  */
 export async function GET() {
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const { user, isAdmin } = await getCurrentAdminContext();
 
-    if (authError || !user) {
+    if (!user) {
       return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
+    }
+    if (!isAdmin) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     }
 
     const apiKey = process.env.MAXWEB_AI_API_KEY2?.trim();
     if (!apiKey) {
       return NextResponse.json(
-        { ok: false, provider: "gemini", configured: listConfiguredProviders(), error: "ai_not_configured" },
+        {
+          ok: false,
+          provider: "gemini",
+          configured: listConfiguredProviders(),
+          error: "ai_not_configured",
+        },
         { status: 503 }
       );
     }
 
     const model = normalizeGeminiModel(process.env.MAXWEB_GEMINI_MODEL);
-    const controller = AbortSignal.timeout(8_000);
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}`,
       {
         method: "GET",
         headers: { "x-goog-api-key": apiKey },
-        signal: controller,
+        signal: AbortSignal.timeout(8_000),
         cache: "no-store",
       }
     );
