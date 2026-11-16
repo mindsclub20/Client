@@ -4,7 +4,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AdminLogoutButton from "./admin-logout-button";
 import AdminQuoteApprovalButton from "./admin-quote-approval-button";
 import DashboardShell, { dash } from "@/app/components/dashboard-shell";
-import AdminAISummaryMonitor from "./ai-summary-monitor";
 import AdminAIStatusCard from "./ai-status-card";
 import AdminAIConversationsPanel from "./ai-conversations-panel";
 
@@ -31,7 +30,7 @@ export default async function AdminPage() {
   const supabase = await createSupabaseServerClient();
   const { data: conversations } = await supabase
     .from("ai_conversations")
-    .select("id, status")
+    .select("id, status, demo_requested_at")
     .order("updated_at", { ascending: false })
     .limit(40);
 
@@ -57,6 +56,7 @@ export default async function AdminPage() {
   const approvedPrices = (approvedQuotes || []).map((quote) => quote.proposed_price);
   const approvedQuoteCount = approvedPrices.length;
   const activeCount = list.filter((c) => c.status === "active").length;
+  const demoCount = list.filter((c) => c.demo_requested_at).length;
   const avgAgreed =
     approvedPrices.length > 0
       ? Math.round(approvedPrices.reduce((a, b) => a + b, 0) / approvedPrices.length)
@@ -111,7 +111,7 @@ export default async function AdminPage() {
             <p style={dash.label}>Control panel</p>
             <h1 style={dash.h1}>Admin dashboard</h1>
             <p style={{ ...dash.muted, marginTop: 10 }}>
-              Same MAXWEB palette as the homepage — oversee quotes, clients, and delivery.
+              Full client chats come here — no AI summaries. Demo requests are flagged.
             </p>
           </header>
 
@@ -134,6 +134,7 @@ export default async function AdminPage() {
             {[
               { label: "Client chats", value: String(list.length) },
               { label: "Active", value: String(activeCount) },
+              { label: "Demo requests", value: String(demoCount) },
               { label: "Approved quotes", value: String(approvedQuoteCount) },
               {
                 label: "Avg agreed",
@@ -193,8 +194,6 @@ export default async function AdminPage() {
               </div>
             )}
           </section>
-
-          <AdminAISummaryMonitor />
 
           <AdminAIConversationsPanel
             approvedPriceByConversation={approvedPriceByConversation}
