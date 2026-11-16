@@ -16,28 +16,21 @@ type ConversationRow = {
   starting_price: number | null;
   current_price: number | null;
   agreed_price: number | null;
-  summary: string | null;
-  summary_generated_at?: string | null;
+  demo_requested_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+type MessageRow = {
+  conversation_id: string;
+  role: string;
+  content: string;
+  created_at: string;
 };
 
 function formatInr(value: number | null | undefined) {
   if (value == null || Number.isNaN(Number(value))) return "—";
   return `₹${Number(value).toLocaleString("en-IN")}`;
-}
-
-function summaryState(c: ConversationRow) {
-  if (c.summary && c.summary.trim()) {
-    if (
-      c.summary_generated_at &&
-      new Date(c.updated_at).getTime() > new Date(c.summary_generated_at).getTime()
-    ) {
-      return { label: "Summary stale", color: "#ffbd75" };
-    }
-    return { label: "Summarized", color: "#55d6ad" };
-  }
-  return { label: "Needs summary", color: "#9fb3cf" };
 }
 
 export default async function AdminAIConversationsPanel({
@@ -50,7 +43,7 @@ export default async function AdminAIConversationsPanel({
   const { data: conversations, error } = await supabase
     .from("ai_conversations")
     .select(
-      "id, user_id, title, status, website_type, starting_price, current_price, agreed_price, summary, summary_generated_at, created_at, updated_at"
+      "id, user_id, title, status, website_type, starting_price, current_price, agreed_price, demo_requested_at, created_at, updated_at"
     )
     .order("updated_at", { ascending: false })
     .limit(40);
@@ -59,9 +52,9 @@ export default async function AdminAIConversationsPanel({
     console.error("admin conversations load failed", { code: error.code });
     return (
       <section style={{ marginTop: 28 }}>
-        <h2 style={{ fontSize: 20, marginBottom: 14 }}>AI client interactions & bargains</h2>
+        <h2 style={{ fontSize: 20, marginBottom: 14 }}>Client chats</h2>
         <div style={{ ...PANEL, color: "#ffb6a9" }}>
-          Could not load AI conversations. Check RLS policies for administrators.
+          Could not load conversations. Check RLS policies for administrators.
         </div>
       </section>
     );
@@ -70,38 +63,28 @@ export default async function AdminAIConversationsPanel({
   const list = (conversations || []) as ConversationRow[];
   const ids = list.map((c) => c.id);
 
-  const messageCountById = new Map<string, number>();
-  const lastUserMessageById = new Map<string, string>();
-  const lastAssistantMessageById = new Map<string, string>();
+  const messagesByConversation = new Map<string, MessageRow[]>();
 
   if (ids.length) {
     const { data: messages, error: messageError } = await supabase
       .from("ai_messages")
       .select("conversation_id, role, content, created_at")
       .in("conversation_id", ids)
-      .order("created_at", { ascending: false })
-      .limit(400);
+      .order("created_at", { ascending: true })
+      .limit(1200);
 
     if (messageError) {
       console.error("admin messages load failed", { code: messageError.code });
     } else {
-      for (const message of messages || []) {
-        const id = message.conversation_id as string;
-        messageCountById.set(id, (messageCountById.get(id) || 0) + 1);
-        const role = String(message.role).toLowerCase();
-        const content = String(message.content || "").trim();
-        if (!content) continue;
-        if ((role === "user" || role === "customer") && !lastUserMessageById.has(id)) {
-          lastUserMessageById.set(id, content.slice(0, 280));
-        }
-        if (role === "assistant" && !lastAssistantMessageById.has(id)) {
-          lastAssistantMessageById.set(id, content.slice(0, 280));
-        }
+      for (const message of (messages || []) as MessageRow[]) {
+        const bucket = messagesByConversation.get(message.conversation_id) || [];
+        bucket.push(message);
+        messagesByConversation.set(message.conversation_id, bucket);
       }
     }
   }
 
-  const needsSummary = list.filter((c) => !c.summary || !String(c.summary).trim()).length;
+  const demoCount = list.filter((c) => c.demo_requested_at).length;
   const activeCount = list.filter((c) => c.status === "active").length;
   const prices = list
     .map((c) => Number(c.current_price))
@@ -113,21 +96,11 @@ export default async function AdminAIConversationsPanel({
 
   return (
     <section style={{ marginTop: 28 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: 12,
-          flexWrap: "wrap",
-          alignItems: "baseline",
-        }}
-      >
-        <div>
-          <h2 style={{ fontSize: 20, marginBottom: 6 }}>AI client interactions & bargains</h2>
-          <p style={{ color: "#9fb3cf", fontSize: 13, marginTop: 0 }}>
-            Live consultations from /client. Price floor ₹7,000 · start ₹15,000 · Gemini only.
-          </p>
-        </div>
+      <div>
+        <h2 style={{ fontSize: 20, marginBottom: 6 }}>Client chats (full transcript)</h2>
+        <p style={{ color: "#9fb3cf", fontSize: 13, marginTop: 0 }}>
+          Entire conversation is shown here — no AI summaries. Demo requests are highlighted.
+        </p>
       </div>
 
       <div
@@ -139,9 +112,9 @@ export default async function AdminAIConversationsPanel({
         }}
       >
         {[
-          { label: "Listed chats", value: String(list.length) },
+          { label: "Chats", value: String(list.length) },
           { label: "Active", value: String(activeCount) },
-          { label: "Need summary", value: String(needsSummary) },
+          { label: "Demo requests", value: String(demoCount) },
           {
             label: "Avg current price",
             value: avgCurrent ? formatInr(avgCurrent) : "—",
@@ -166,22 +139,16 @@ export default async function AdminAIConversationsPanel({
             padding: 28,
           }}
         >
-          <p style={{ margin: "0 0 8px", fontSize: 16, color: "#eaf1fb" }}>
-            No AI conversations yet
-          </p>
+          <p style={{ margin: "0 0 8px", fontSize: 16, color: "#eaf1fb" }}>No client chats yet</p>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
-            When clients use the AI consultant on <strong>/client</strong>, website type,
-            bargain price, and transcripts appear here for review and quote approval.
+            When clients use <strong>/client</strong>, the full message thread appears here.
           </p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {list.map((c) => {
-            const state = summaryState(c);
             const approved = approvedPriceByConversation.get(c.id);
-            const msgCount = messageCountById.get(c.id) || 0;
-            const lastUser = lastUserMessageById.get(c.id);
-            const lastAssistant = lastAssistantMessageById.get(c.id);
+            const thread = messagesByConversation.get(c.id) || [];
 
             return (
               <article key={c.id} style={{ ...PANEL, padding: 16 }}>
@@ -208,18 +175,20 @@ export default async function AdminAIConversationsPanel({
                     >
                       {c.status}
                     </span>
-                    <span
-                      style={{
-                        marginLeft: 10,
-                        fontSize: 12,
-                        color: state.color,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {state.label}
-                    </span>
+                    {c.demo_requested_at ? (
+                      <span
+                        style={{
+                          marginLeft: 10,
+                          fontSize: 12,
+                          color: "#d29a68",
+                          fontWeight: 700,
+                        }}
+                      >
+                        Demo requested
+                      </span>
+                    ) : null}
                     <p style={{ color: "#9fb3cf", fontSize: 11, margin: "6px 0 0" }}>
-                      Customer: {c.user_id} · Messages: {msgCount}
+                      Customer: {c.user_id} · {thread.length} messages
                     </p>
                   </div>
                   <div style={{ textAlign: "right", fontSize: 14 }}>
@@ -234,48 +203,79 @@ export default async function AdminAIConversationsPanel({
                   </div>
                 </div>
 
-                {lastUser ? (
-                  <p style={{ color: "#eaf1fb", fontSize: 13, lineHeight: 1.45, margin: "10px 0 0" }}>
-                    <strong>Customer:</strong> {lastUser}
-                  </p>
-                ) : null}
-                {lastAssistant ? (
-                  <p style={{ color: "#d4dfef", fontSize: 13, lineHeight: 1.45, margin: "8px 0 0" }}>
-                    <strong>AI:</strong> {lastAssistant}
+                {c.demo_requested_at ? (
+                  <p style={{ color: "#d29a68", fontSize: 13, margin: "10px 0 0" }}>
+                    Demo requested {" "}
+                    {new Date(c.demo_requested_at).toLocaleString("en-IN")}
                   </p>
                 ) : null}
 
-                {c.summary ? (
-                  <p
-                    style={{
-                      color: "#9fb3cf",
-                      fontSize: 13,
-                      margin: "10px 0 0",
-                      lineHeight: 1.45,
-                      borderTop: "1px solid #ffffff14",
-                      paddingTop: 10,
-                    }}
-                  >
-                    <strong style={{ color: "#eaf1fb" }}>Summary:</strong> {c.summary}
-                  </p>
-                ) : (
-                  <p
-                    style={{
-                      color: "#9fb3cf",
-                      fontSize: 13,
-                      margin: "10px 0 0",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    No AI summary yet — scheduled daily job will generate one when the queue runs.
-                  </p>
-                )}
+                <div
+                  style={{
+                    marginTop: 12,
+                    maxHeight: 320,
+                    overflowY: "auto",
+                    borderRadius: 12,
+                    border: "1px solid #ffffff14",
+                    background: "#0a2147",
+                    padding: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                  }}
+                >
+                  {thread.length === 0 ? (
+                    <p style={{ color: "#9fb3cf", fontSize: 13, margin: 0, fontStyle: "italic" }}>
+                      No messages in this thread yet.
+                    </p>
+                  ) : (
+                    thread.map((m, index) => {
+                      const role = String(m.role).toLowerCase();
+                      const isUser = role === "user" || role === "customer";
+                      return (
+                        <div
+                          key={`${c.id}-${index}-${m.created_at}`}
+                          style={{
+                            alignSelf: isUser ? "flex-end" : "flex-start",
+                            maxWidth: "92%",
+                            borderRadius: isUser
+                              ? "12px 12px 4px 12px"
+                              : "12px 12px 12px 4px",
+                            padding: "8px 12px",
+                            background: isUser ? "#1b4a86" : "#ffffff0a",
+                            border: isUser ? "none" : "1px solid #ffffff14",
+                          }}
+                        >
+                          <p
+                            style={{
+                              margin: 0,
+                              fontSize: 11,
+                              color: "#9fb3cf",
+                              letterSpacing: 0.4,
+                            }}
+                          >
+                            {isUser ? "Client" : role === "assistant" ? "Assistant" : role} ·{" "}
+                            {new Date(m.created_at).toLocaleString("en-IN")}
+                          </p>
+                          <p
+                            style={{
+                              margin: "4px 0 0",
+                              fontSize: 13,
+                              lineHeight: 1.45,
+                              whiteSpace: "pre-wrap",
+                              color: "#eaf1fb",
+                            }}
+                          >
+                            {m.content}
+                          </p>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
 
                 <p style={{ color: "#9fb3cf", fontSize: 12, margin: "8px 0 0" }}>
                   Updated {new Date(c.updated_at).toLocaleString("en-IN")}
-                  {c.summary_generated_at
-                    ? ` · Summarized ${new Date(c.summary_generated_at).toLocaleString("en-IN")}`
-                    : ""}
                 </p>
               </article>
             );
