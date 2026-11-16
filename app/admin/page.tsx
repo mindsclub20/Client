@@ -3,7 +3,7 @@ import { getCurrentAdminContext } from "@/lib/admin-auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AdminLogoutButton from "./admin-logout-button";
 import AdminQuoteApprovalButton from "./admin-quote-approval-button";
-import DashboardShell from "@/app/components/dashboard-shell";
+import DashboardShell, { dash } from "@/app/components/dashboard-shell";
 import AdminAISummaryMonitor from "./ai-summary-monitor";
 import AdminAIStatusCard from "./ai-status-card";
 import AdminAIConversationsPanel from "./ai-conversations-panel";
@@ -11,12 +11,7 @@ import AdminAIConversationsPanel from "./ai-conversations-panel";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const CARD = {
-  border: "1px solid #ffffff1f",
-  borderRadius: 16,
-  padding: 24,
-  background: "linear-gradient(160deg, #143a72, #0e2d5c)",
-} as const;
+const CARD = dash.card;
 
 const SERVICE_LINKS = [
   { name: "GitHub", url: "https://github.com/mindsclub20/Client", desc: "Source code" },
@@ -67,85 +62,92 @@ export default async function AdminPage() {
       ? Math.round(approvedPrices.reduce((a, b) => a + b, 0) / approvedPrices.length)
       : null;
 
+  const topNav = (
+    <div
+      style={{
+        maxWidth: 1100,
+        margin: "0 auto",
+        padding: "14px 24px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: "50%",
+            background: dash.teal,
+            boxShadow: "0 0 12px rgba(47,181,174,0.7)",
+          }}
+        />
+        <strong style={{ letterSpacing: 1.5, fontSize: 13 }}>MAXWEB</strong>
+        <span style={{ color: dash.mutedColor, fontSize: 12 }}>Admin</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <a href="/admin/integrations" style={{ color: dash.text, textDecoration: "none", fontSize: 14 }}>
+          Integrations
+        </a>
+        <a href="/" style={{ color: dash.text, textDecoration: "none", fontSize: 14 }}>
+          Website
+        </a>
+        <a href="/client" style={{ color: dash.text, textDecoration: "none", fontSize: 14 }}>
+          Client view
+        </a>
+        <AdminLogoutButton />
+      </div>
+    </div>
+  );
+
   return (
-    <DashboardShell>
-      <main style={{ padding: "40px 24px" }}>
+    <DashboardShell topNav={topNav}>
+      <main style={{ padding: "32px 24px 72px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <header
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 16,
-              flexWrap: "wrap",
-              borderBottom: "1px solid #ffffff1f",
-              paddingBottom: 24,
-            }}
-          >
-            <div>
-              <p style={{ color: "#9fb3cf", letterSpacing: 2, fontSize: 12, margin: 0 }}>
-                MAXWEB CONTROL PANEL
-              </p>
-              <h1
-                style={{
-                  fontFamily: "Instrument Serif, Georgia, serif",
-                  fontWeight: 400,
-                  fontSize: 32,
-                  margin: "10px 0 0",
-                }}
-              >
-                Admin dashboard
-              </h1>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-              <a href="/admin/integrations" style={{ color: "#eaf1fb" }}>
-                Developer Integrations
-              </a>
-              <a href="/" style={{ color: "#eaf1fb" }}>
-                View website
-              </a>
-              <a href="/client" style={{ color: "#eaf1fb" }}>
-                Client view
-              </a>
-              <AdminLogoutButton />
-            </div>
+          <header style={{ marginBottom: 8 }}>
+            <p style={dash.label}>Control panel</p>
+            <h1 style={dash.h1}>Admin dashboard</h1>
+            <p style={{ ...dash.muted, marginTop: 10 }}>
+              Same MAXWEB palette as the homepage — oversee quotes, clients, and delivery.
+            </p>
           </header>
 
-          <section style={{ ...CARD, marginTop: 28 }}>
-            <p style={{ color: "#9fb3cf", marginTop: 0 }}>Authenticated administrator</p>
-            <h2 style={{ fontSize: 20, margin: "8px 0" }}>{user.email}</h2>
-            <p style={{ color: "#9fb3cf", marginBottom: 0 }}>
+          <section style={{ ...CARD, marginTop: 22 }}>
+            <p style={{ color: dash.mutedColor, marginTop: 0, fontSize: 13 }}>Signed in</p>
+            <h2 style={{ fontSize: 20, margin: "6px 0" }}>{user.email}</h2>
+            <p style={{ color: dash.mutedColor, marginBottom: 0, fontSize: 13 }}>
               Role verified via Supabase app_metadata.
             </p>
           </section>
 
-          <AdminAIStatusCard />
-
           <section
             style={{
-              marginTop: 24,
+              marginTop: 18,
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
               gap: 12,
             }}
           >
             {[
-              { label: "AI chats", value: String(list.length) },
+              { label: "Client chats", value: String(list.length) },
               { label: "Active", value: String(activeCount) },
               { label: "Approved quotes", value: String(approvedQuoteCount) },
               {
-                label: "Avg agreed price",
+                label: "Avg agreed",
                 value: avgAgreed ? `₹${avgAgreed.toLocaleString("en-IN")}` : "—",
               },
             ].map((stat) => (
-              <div key={stat.label} style={{ ...CARD, borderRadius: 14, padding: 18 }}>
-                <p style={{ color: "#9fb3cf", fontSize: 12, margin: 0, letterSpacing: 1 }}>
-                  {stat.label.toUpperCase()}
-                </p>
+              <div key={stat.label} style={{ ...dash.cardSoft, padding: 16 }}>
+                <p style={{ ...dash.label, fontSize: 10 }}>{stat.label}</p>
                 <p style={{ fontSize: 22, margin: "8px 0 0", fontWeight: 700 }}>{stat.value}</p>
               </div>
             ))}
           </section>
+
+          <AdminAIStatusCard />
 
           <section style={{ marginTop: 28 }}>
             <h2 style={{ fontSize: 20, marginBottom: 14 }}>Quotation approval queue</h2>
@@ -155,13 +157,13 @@ export default async function AdminPage() {
                 this module.
               </div>
             ) : !pendingQuotes?.length ? (
-              <div style={{ ...CARD, color: "#9fb3cf" }}>
+              <div style={{ ...CARD, color: dash.mutedColor }}>
                 No quotations are waiting for admin approval.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {pendingQuotes.map((quote) => (
-                  <article key={quote.id} style={{ ...CARD, borderRadius: 14, padding: 18 }}>
+                  <article key={quote.id} style={{ ...CARD, padding: 18 }}>
                     <div
                       style={{
                         display: "flex",
@@ -172,15 +174,15 @@ export default async function AdminPage() {
                     >
                       <div>
                         <strong>Customer quotation request</strong>
-                        <p style={{ color: "#9fb3cf", fontSize: 12, margin: "6px 0" }}>
+                        <p style={{ color: dash.mutedColor, fontSize: 12, margin: "6px 0" }}>
                           Customer ID: {quote.user_id}
                         </p>
-                        <p style={{ color: "#9fb3cf", fontSize: 13, margin: 0 }}>
+                        <p style={{ color: dash.mutedColor, fontSize: 13, margin: 0 }}>
                           {quote.scope_summary}
                         </p>
                       </div>
                       <div style={{ textAlign: "right" }}>
-                        <strong style={{ color: "#d29a68", display: "block", marginBottom: 10 }}>
+                        <strong style={{ color: dash.gold, display: "block", marginBottom: 10 }}>
                           ₹{Number(quote.proposed_price).toLocaleString("en-IN")}
                         </strong>
                         <AdminQuoteApprovalButton quoteId={quote.id} />
@@ -215,14 +217,13 @@ export default async function AdminPage() {
                   rel="noopener noreferrer"
                   style={{
                     ...CARD,
-                    borderRadius: 14,
                     padding: 18,
-                    color: "#eaf1fb",
+                    color: dash.text,
                     textDecoration: "none",
                   }}
                 >
                   <strong style={{ display: "block", marginBottom: 4 }}>{link.name}</strong>
-                  <span style={{ color: "#9fb3cf", fontSize: 13 }}>{link.desc}</span>
+                  <span style={{ color: dash.mutedColor, fontSize: 13 }}>{link.desc}</span>
                 </a>
               ))}
             </div>
@@ -244,10 +245,10 @@ export default async function AdminPage() {
               "Invoices & payments",
               "After-sales support",
             ].map((item) => (
-              <article key={item} style={{ ...CARD, borderRadius: 14, padding: 20 }}>
+              <article key={item} style={{ ...dash.cardSoft, padding: 20 }}>
                 <h3 style={{ margin: 0, fontSize: 16 }}>{item}</h3>
-                <p style={{ color: "#9fb3cf", fontSize: 13, marginBottom: 0 }}>
-                  Placeholder module — not connected yet
+                <p style={{ color: dash.mutedColor, fontSize: 13, marginBottom: 0 }}>
+                  Coming soon
                 </p>
               </article>
             ))}
