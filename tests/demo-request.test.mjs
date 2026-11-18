@@ -24,8 +24,8 @@ test("client can request a demo via dedicated API", () => {
 
 test("admin shows the full message transcript while summary monitoring remains separate", () => {
   assert.match(adminPanel, /messagesByConversation/);
-  assert.match(adminPanel, /thread\\.map/);
-  assert.match(adminPanel, /m\\.content/);
+  assert.match(adminPanel, /thread\.map/);
+  assert.match(adminPanel, /m\.content/);
   assert.match(adminPage, /AdminAISummaryMonitor/);
 });
 
