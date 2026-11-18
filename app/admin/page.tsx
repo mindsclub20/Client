@@ -6,6 +6,7 @@ import {
 import AdminLogoutButton from "./admin-logout-button";
 import AdminQuoteApprovalButton from "./admin-quote-approval-button";
 import DashboardShell, { dash } from "@/app/components/dashboard-shell";
+import AccountProfile from "@/app/components/account-profile";
 import AdminAIStatusCard from "./ai-status-card";
 import AdminAISummaryMonitor from "./ai-summary-monitor";
 import AdminAIConversationsPanel from "./ai-conversations-panel";
@@ -136,7 +137,7 @@ export default async function AdminPage() {
 
   return (
     <DashboardShell topNav={topNav}>
-      <main style={{ padding: "32px 24px 72px" }}>
+      <main style={{ padding: "32px 24px 116px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <header style={{ marginBottom: 8 }}>
             <p style={dash.label}>Control panel</p>
@@ -290,6 +291,7 @@ export default async function AdminPage() {
           </section>
         </div>
       </main>
+      <AccountProfile email={user.email || ""} name={user.email || null} />
     </DashboardShell>
   );
 }
