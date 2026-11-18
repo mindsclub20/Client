@@ -60,7 +60,7 @@ test("conversation reads and quote status use owner-scoped resolved identities",
   const lookupStart = route.indexOf("const { data: conversation, error: convError }");
   const lookupEnd = route.indexOf("if (convError", lookupStart);
   const conversationLookup = route.slice(lookupStart, lookupEnd);
-  assert.match(conversationLookup, /\\.eq\\("id", conversationId\\)[\\s\\S]*?\\.eq\\("user_id", user\\.id\\)/);
+  assert.match(conversationLookup, /\.eq\("id", conversationId\)[\s\S]*?\.eq\("user_id", user\.id\)/);
   assert.match(quoteStatusRoute, /getCurrentAIUserContext/);
   assert.equal((quoteStatusRoute.match(/\.eq\("user_id", user\.id\)/g) || []).length, 2);
 });
