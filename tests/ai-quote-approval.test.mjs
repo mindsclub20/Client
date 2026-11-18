@@ -53,8 +53,8 @@ test("client payment actions are rendered only for an approved quote", async () 
   const client = await readFile(new URL("../app/client/client-dashboard.tsx", import.meta.url), "utf8");
   assert.match(client, /quoteStatus === "approved"/);
   assert.match(client, /FAMPAY_UPI/);
-  assert.match(client, /navigator\\.clipboard\\.writeText\\(FAMPAY_UPI\\)/);
-  assert.match(client, /api\\/ai\\/quote\\/accept/);
+  assert.match(client, /navigator\.clipboard\.writeText\(FAMPAY_UPI\)/);
+  assert.match(client, /api\/ai\/quote\/accept/);
 });
 
 test("admin dashboard exposes pending quotes and an approval action", async () => {
