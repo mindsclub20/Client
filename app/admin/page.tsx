@@ -27,7 +27,7 @@ export default async function AdminPage() {
         <section style={{ marginTop: 32, border: "1px solid #27314b", borderRadius: 16, padding: 24, background: "#10182b" }}>
           <p style={{ color: "#8ba4d8", marginTop: 0 }}>Authenticated administrator</p>
           <h2 style={{ fontSize: 20, margin: "8px 0" }}>{user.email}</h2>
-          <p style={{ color: "#a8b5d1", marginBottom: 0 }}>Your admin role has been verified by the server using Supabase app_metadata.</p>
+          <p style={{ color: "#a8b5d1", marginBottom: 0 }}>Your administrator access has been verified by the server using trusted Authgear claims or Supabase app_metadata.</p>
         </section>
         <section style={{ marginTop: 24, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
           {["Enquiries", "Customers", "Projects", "Quotations", "Invoices & payments", "After-sales support"].map((item) => (

@@ -18,7 +18,12 @@ export default function AdminLogoutButton() {
         headers: { "Content-Type": "application/json" },
         body: "{}",
       });
+      const data = await response.json();
       if (!response.ok) throw new Error("Sign-out request failed");
+      if (data.redirectTo) {
+        window.location.assign(data.redirectTo);
+        return;
+      }
       window.location.replace("/#login");
     } catch {
       setBusy(false);

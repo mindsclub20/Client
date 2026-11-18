@@ -42,12 +42,11 @@
     $("sw").firstChild.textContent = signup ? "Already have an account? " : "New here? ";
     $("ca").textContent = signup ? "Log in" : "Create an account";
     $("ap").setAttribute("autocomplete", signup ? "new-password" : "current-password");
+    $("authgear-login").textContent = signup ? "Continue with Authgear" : "Continue with Authgear";
   }
 
   function route() {
     var h = window.location.hash, screen = "site";
-    // The server-protected /admin route is the source of truth; this is only
-    // a convenience redirect so administrators do not land in the client UI.
     if (user && user.role === "admin" && (h === "#login" || h === "#portal")) {
       window.location.replace("/admin");
       return;
@@ -67,6 +66,13 @@
   }
 
   function setBusy(value) { busy = value; $("go").classList.toggle("ld", value); $("go").disabled = value; }
+
+  var authgearButton = document.createElement("a");
+  authgearButton.id = "authgear-login";
+  authgearButton.href = "/api/auth/authgear/start";
+  authgearButton.textContent = "Continue with Authgear";
+  authgearButton.style.cssText = "display:block;width:100%;box-sizing:border-box;margin-top:12px;padding:13px 18px;border:1px solid #53658a;border-radius:10px;text-align:center;text-decoration:none;color:inherit;font-weight:600;";
+  $("go").insertAdjacentElement("afterend", authgearButton);
 
   $("af").addEventListener("submit", function (event) {
     event.preventDefault();
@@ -105,7 +111,9 @@
     var button = this; button.classList.add("ld");
     api("/sign-out", {}).then(function (res) {
       if (!res.ok) throw new Error("logout failed");
-      user = null; window.location.hash = "#"; window.location.reload();
+      user = null;
+      if (res.data && res.data.redirectTo) { window.location.assign(res.data.redirectTo); return; }
+      window.location.hash = "#"; window.location.reload();
     }).catch(function () {
       button.classList.remove("ld");
       window.MAXWEB_toast && window.MAXWEB_toast("Could not log out. Try again.");
