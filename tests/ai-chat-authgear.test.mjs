@@ -27,6 +27,7 @@ test("AI chat resolves Authgear and Supabase users through a shared ownership co
   assert.match(context, /createSupabaseServerClient/);
   assert.match(route, /getCurrentAIUserContext/);
   assert.match(route, /conversation\.user_id !== user\.id/);
+  assert.match(route, /\.update\(updates\)[\s\S]*?\.eq\("user_id", user\.id\)/);
   assert.match(route, /status: 403/);
 });
 
