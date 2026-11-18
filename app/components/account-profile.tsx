@@ -2,7 +2,7 @@
 
 function initials(name: string | null, email: string): string {
   const source = (name || email || "U").trim();
-  const parts = source.includes("@") ? [source.split("@")[0]] : source.split(/\\s+/);
+  const parts = source.includes("@") ? [source.split("@")[0]] : source.split(/\s+/);
   const value = parts.slice(0, 2).map((part) => part.charAt(0)).join("");
   return value.toUpperCase() || "U";
 }
