@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createVerifiedAdminDataClient } from "@/lib/admin-auth";
 
 const PANEL = {
   border: "1px solid #ffffff1f",
@@ -74,49 +74,61 @@ export default async function AdminAIConversationsPanel({
 }: {
   approvedPriceByConversation: Map<string, number>;
 }) {
-  const supabase = await createSupabaseServerClient();
+  let list: ConversationRow[] = [];
+  let loadError: string | null = null;
+  const messagesByConversation = new Map<string, MessageRow[]>();
 
-  const { data: conversations, error } = await supabase
-    .from("ai_conversations")
-    .select(
-      "id, user_id, title, status, website_type, starting_price, current_price, agreed_price, demo_requested_at, customer_name, business_name, contact_email, contact_phone, preferred_language, created_at, updated_at"
-    )
-    .order("updated_at", { ascending: false })
-    .limit(120);
+  try {
+    const supabase = await createVerifiedAdminDataClient();
+    const { data: conversations, error } = await supabase
+      .from("ai_conversations")
+      .select(
+        "id, user_id, title, status, website_type, starting_price, current_price, agreed_price, demo_requested_at, customer_name, business_name, contact_email, contact_phone, preferred_language, created_at, updated_at"
+      )
+      .order("updated_at", { ascending: false })
+      .limit(120);
 
-  if (error) {
-    console.error("admin conversations load failed", { code: error.code });
+    if (error) {
+      console.error("admin conversations load failed", { code: error.code });
+      loadError = "Could not load conversations. Check service-role configuration and table access.";
+    } else {
+      list = (conversations || []) as ConversationRow[];
+      const ids = list.map((c) => c.id);
+      if (ids.length) {
+        const { data: messages, error: messageError } = await supabase
+          .from("ai_messages")
+          .select("conversation_id, role, content, created_at")
+          .in("conversation_id", ids)
+          .order("created_at", { ascending: true })
+          .limit(2500);
+
+        if (messageError) {
+          console.error("admin messages load failed", { code: messageError.code });
+        } else {
+          for (const message of (messages || []) as MessageRow[]) {
+            const bucket = messagesByConversation.get(message.conversation_id) || [];
+            bucket.push(message);
+            messagesByConversation.set(message.conversation_id, bucket);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error(
+      "admin conversations client failed",
+      error instanceof Error ? error.message : "unknown error"
+    );
+    loadError =
+      "Admin data client is not configured. Set SUPABASE_SERVICE_ROLE_KEY for Authgear admin chat access.";
+  }
+
+  if (loadError) {
     return (
       <section style={{ marginTop: 28 }}>
         <h2 style={{ fontSize: 20, marginBottom: 14 }}>Client chats by account</h2>
-        <div style={{ ...PANEL, color: "#ffb6a9" }}>
-          Could not load conversations. Check RLS policies for administrators.
-        </div>
+        <div style={{ ...PANEL, color: "#ffb6a9" }}>{loadError}</div>
       </section>
     );
-  }
-
-  const list = (conversations || []) as ConversationRow[];
-  const ids = list.map((c) => c.id);
-  const messagesByConversation = new Map<string, MessageRow[]>();
-
-  if (ids.length) {
-    const { data: messages, error: messageError } = await supabase
-      .from("ai_messages")
-      .select("conversation_id, role, content, created_at")
-      .in("conversation_id", ids)
-      .order("created_at", { ascending: true })
-      .limit(2500);
-
-    if (messageError) {
-      console.error("admin messages load failed", { code: messageError.code });
-    } else {
-      for (const message of (messages || []) as MessageRow[]) {
-        const bucket = messagesByConversation.get(message.conversation_id) || [];
-        bucket.push(message);
-        messagesByConversation.set(message.conversation_id, bucket);
-      }
-    }
   }
 
   const byUser = new Map<string, ConversationRow[]>();
@@ -275,7 +287,14 @@ export default async function AdminAIConversationsPanel({
                 </div>
               </summary>
 
-              <div style={{ padding: "14px 18px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div
+                style={{
+                  padding: "14px 18px 18px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 14,
+                }}
+              >
                 {account.conversations.map((c, chatIndex) => {
                   const approved = approvedPriceByConversation.get(c.id);
                   const thread = messagesByConversation.get(c.id) || [];
