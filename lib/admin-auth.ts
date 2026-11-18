@@ -1,6 +1,15 @@
+import { getAuthgearSession } from "@/lib/authgear";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function getCurrentAdminContext() {
+  const authgearUser = await getAuthgearSession();
+  if (authgearUser) {
+    return {
+      user: { id: authgearUser.sub, email: authgearUser.email, name: authgearUser.name, app_metadata: { role: authgearUser.role } },
+      isAdmin: authgearUser.role === "admin"
+    };
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data: { user }, error } = await supabase.auth.getUser();
 

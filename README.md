@@ -2,25 +2,40 @@
 
 MAXWEB uses a native Next.js App Router architecture on Vercel.
 
-## Architecture
-- Next.js 15 App Router + TypeScript.
-- Vercel native Next.js deployment and serverless route handlers.
-- Supabase Auth with `@supabase/ssr` cookie-based sessions.
-- `GET /api/me` verifies the user on the server with `auth.getUser()`.
-- Auth endpoints: `POST /api/auth/sign-up/email`, `POST /api/auth/sign-in/email`, `POST /api/auth/sign-out`.
-- Email confirmation follows the same PKCE callback flow used by Skilldrem: Supabase's standard Confirm signup email template sends the user through Supabase Auth, which redirects to `/auth/callback?code=...`; the route exchanges the code for a cookie-backed session.
-- `GET /client.html` is a compatibility callback for old confirmation emails created by the retired `maxweb-one.vercel.app` site. It exchanges the same PKCE code and redirects to the portal.
-- The current production origin is `https://maxweb-new.vercel.app`. The signup API derives the callback origin from the incoming request, so production and preview deployments use their own host.
-- Keep the Supabase redirect allow-list updated for the production and preview URLs you use. The standard Confirm signup template can remain unchanged; no token-hash template customization is required for this flow.
-- Supabase Postgres remains available for future business data. No application tables are created by this migration.
+## Authentication
+
+- Authgear is an additional hosted OIDC login using Authorization Code Flow with PKCE (S256).
+- Authgear sessions are encrypted, HTTP-only cookies. Tokens are not exposed to browser JavaScript or local storage.
+- The callback verifies the ID-token signature against Authgear JWKS and validates issuer, audience, nonce, and expiry.
+- Only a verified email matching the normalized server-side `AUTHGEAR_ADMIN_EMAILS` allowlist receives admin access. All other Authgear users receive client access.
+- Existing Supabase Auth registration, sign-in, confirmation callback, sessions, and trusted `app_metadata` admin authorization remain supported.
 
 ## Vercel environment variables
-- `SUPABASE_URL`: MAXWEB Supabase project URL (Production and Preview).
-- `SUPABASE_ANON_KEY`: Supabase publishable key or legacy anon key (Production and Preview).
 
-Do not expose a service-role/secret key in browser code or a `NEXT_PUBLIC_` variable. The existing Vercel variable names are supported.
+Configure these in both Production and Preview:
+- `AUTHGEAR_CLIENT_ID`: Authgear Public Client ID.
+- `AUTHGEAR_SESSION_SECRET`: random secret of at least 32 characters. Generate privately; never commit it or share it in chat.
+- `AUTHGEAR_ADMIN_EMAILS`: comma-separated admin allowlist. Initially only `bvshyam7777@gmail.com`.
+- `AUTHGEAR_ISSUER`: `https://lyrics-6xahba.authgear.cloud` (optional; default).
+
+Configure these two variables in **Production only**:
+- `AUTHGEAR_REDIRECT_URI`: `https://maxweb-new.vercel.app/authgear/callback`.
+- `AUTHGEAR_POST_LOGOUT_REDIRECT_URI`: `https://maxweb-new.vercel.app/`.
+
+For Preview deployments, leave those URL variables unset. The application derives callback and logout URLs from the current deployment origin. Register the exact Preview callback URL and root URL as allowed redirect URIs in Authgear before testing Preview authentication.
+
+Keep matching Production redirect URIs registered in Authgear. For localhost development, use local redirect URIs and a separate local session secret.
+
+Existing Supabase variables remain required:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+
+## CI verification
+
+GitHub Actions runs `npm test` and `npm run build` for pull requests targeting main and pushes to `feature/maxweb-authgear-auth`.
 
 ## Local development
+
 The Vercel build extracts the original site assets from `MAXWEB.zip` into `public/`, then builds the Next.js application and API routes.
 
 ```bash
