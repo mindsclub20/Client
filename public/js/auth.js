@@ -39,9 +39,11 @@
   function paint() {
     var signup = mode === "signup";
     $("nameRow").hidden = !signup;
-    $("lh").textContent = signup ? "Create your account" : "Welcome back";
-    $("ls").textContent = signup ? "Join the MAXWEB client portal." : "Log in to your MAXWEB client portal.";
-    $("go").textContent = signup ? "Create account" : "Log in";
+    $("lh").textContent = signup ? "Create your account" : "Sign in to MAXWEB";
+    $("ls").textContent = signup
+      ? "Join the MAXWEB client portal."
+      : "Continue securely with Authgear, or use email if you already have a portal account.";
+    $("go").textContent = signup ? "Create account" : "Log in with email";
     $("sw").firstChild.textContent = signup ? "Already have an account? " : "New here? ";
     $("ca").textContent = signup ? "Log in" : "Create an account";
     $("ap").setAttribute("autocomplete", signup ? "new-password" : "current-password");
@@ -49,7 +51,6 @@
 
   function route() {
     var h = window.location.hash, screen = "site";
-    // Redirect authenticated users to the proper dashboard.
     if (user && user.role === "admin" && (h === "#login" || h === "#portal")) {
       window.location.replace("/admin");
       return;
@@ -78,6 +79,16 @@
 
   function setBusy(value) { busy = value; $("go").classList.toggle("ld", value); $("go").disabled = value; }
 
+  if (!$("authgear-login")) {
+    var authgearButton = document.createElement("a");
+    authgearButton.id = "authgear-login";
+    authgearButton.href = "/api/auth/authgear/start";
+    authgearButton.textContent = "Continue with Authgear";
+    authgearButton.setAttribute("aria-label", "Continue to secure MAXWEB sign in with Authgear");
+    authgearButton.style.cssText = "display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;box-sizing:border-box;margin:8px 0 18px;padding:14px 20px;border:1px solid #53658a;border-radius:12px;background:#17243d;color:#fff;text-align:center;text-decoration:none;font-weight:700;letter-spacing:.01em;";
+    form.parentNode.insertBefore(authgearButton, form);
+  }
+
   form.addEventListener("submit", function (event) {
     event.preventDefault();
     if (busy) return;
@@ -100,7 +111,6 @@
         setBusy(false);
         if (!user) { setErr("Signed in, but the session could not be confirmed. Check cookies and try again."); return; }
         $("ap").value = "";
-        // Send clients to the AI dashboard; admins to control panel.
         if (user.role === "admin") {
           window.location.replace("/admin");
         } else {
@@ -119,9 +129,19 @@
   });
   $("lo").addEventListener("click", function () {
     var button = this; button.classList.add("ld");
-    api("/sign-out", {}).then(function (res) {
+    fetch("/api/auth/sign-out", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    }).then(function (res) {
       if (!res.ok) throw new Error("logout failed");
-      user = null; window.location.hash = "#"; window.location.reload();
+      return res.json();
+    }).then(function (data) {
+      user = null;
+      if (data && data.redirectTo) { window.location.assign(data.redirectTo); return; }
+      window.location.hash = "#";
+      window.location.reload();
     }).catch(function () {
       button.classList.remove("ld");
       window.MAXWEB_toast && window.MAXWEB_toast("Could not log out. Try again.");
