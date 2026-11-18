@@ -273,7 +273,7 @@ export default function ClientDashboard({
               }}
             >
               <div>
-                <p style={dash.label}>Gemini consultant</p>
+                <p style={dash.label}>AI CONSULTANT · GEMINI</p>
                 <h2 style={{ fontSize: 20, margin: "6px 0 0" }}>Chat</h2>
               </div>
               <div
