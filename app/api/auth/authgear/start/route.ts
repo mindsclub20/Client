@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     authorize.searchParams.set("client_id", clientId);
     authorize.searchParams.set("redirect_uri", redirectUri);
     authorize.searchParams.set("response_type", "code");
-    authorize.searchParams.set("scope", "openid email profile");
+    authorize.searchParams.set("scope", "openid https://authgear.com/scopes/full-userinfo");
     authorize.searchParams.set("state", state);
     authorize.searchParams.set("nonce", nonce);
     authorize.searchParams.set("code_challenge", challenge);
