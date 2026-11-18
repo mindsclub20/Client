@@ -16,10 +16,10 @@ test("admin dashboard mounts the monitor only after the admin authorization guar
 
 test("admin monitor revalidates an administrator before server-side summary reads", () => {
   assert.match(monitor, /createVerifiedAdminDataClient/);
-  assert.match(monitor, /await createVerifiedAdminDataClient\\(\\)/);
+  assert.match(monitor, /await createVerifiedAdminDataClient\(\)/);
   assert.doesNotMatch(monitor, /createSupabaseAdminClient/);
-  assert.match(adminAuth, /const \\{ isAdmin \\} = await getCurrentAdminContext\\(\\)/);
-  assert.match(adminAuth, /if \\(!isAdmin\\)/);
+  assert.match(adminAuth, /const \{ isAdmin \} = await getCurrentAdminContext\(\)/);
+  assert.match(adminAuth, /if \(!isAdmin\)/);
   assert.match(monitor, /\.from\("ai_summary_jobs"\)/);
   assert.match(monitor, /\.from\("ai_conversations"\)/);
   assert.match(monitor, /\.from\("ai_messages"\)/);
