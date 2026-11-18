@@ -30,6 +30,6 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Authgear start failed", error instanceof Error ? error.message : "unknown error");
-    return NextResponse.redirect(new URL("/?authgear=configuration_error#login", request.url));
+    return NextResponse.redirect(new URL("/?authgear=configuration_error", request.url));
   }
 }
