@@ -51,15 +51,14 @@
 
   function route() {
     var h = window.location.hash, screen = "site";
-    if (user && user.role === "admin" && (h === "#login" || h === "#portal")) {
-      window.location.replace("/admin");
+    if (h === "#login" || h === "#portal") {
+      if (!user) {
+        window.location.replace("/api/auth/authgear/start");
+        return;
+      }
+      window.location.replace(user.role === "admin" ? "/admin" : "/client");
       return;
     }
-    if (user && user.role !== "admin" && (h === "#login" || h === "#portal")) {
-      window.location.replace("/client");
-      return;
-    }
-    if (h === "#login" || h === "#portal") screen = user ? "portal" : "login";
     $("site").hidden = screen !== "site";
     $("login").hidden = screen !== "login";
     $("portal").hidden = screen !== "portal";
@@ -67,7 +66,7 @@
     var a = document.querySelector(".nav .btn.ghost");
     if (a) {
       a.textContent = user ? (user.role === "admin" ? "Admin dashboard" : "My portal") : "Log in";
-      a.setAttribute("href", user ? (user.role === "admin" ? "/admin" : "/client") : "#login");
+      a.setAttribute("href", user ? (user.role === "admin" ? "/admin" : "/client") : "/api/auth/authgear/start");
     }
     if (user) {
       var who = $("who");
