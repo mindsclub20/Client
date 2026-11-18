@@ -231,7 +231,8 @@ export async function POST(request: Request) {
     const { error: conversationUpdateError } = await supabase
       .from("ai_conversations")
       .update(updates)
-      .eq("id", conversationId);
+      .eq("id", conversationId)
+      .eq("user_id", user.id);
     if (conversationUpdateError) {
       console.error("conversation update failed", { conversationId, code: conversationUpdateError.code });
       return NextResponse.json({ error: "conversation_update_failed", conversationId }, { status: 500 });
