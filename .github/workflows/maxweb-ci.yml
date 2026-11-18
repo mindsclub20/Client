@@ -5,11 +5,13 @@ on:
     branches:
       - fix/cron-summary-reliability
       - feature/admin-ai-conversation-monitor
+      - fix/maxweb-ai-authgear-admin-monitor
   pull_request:
     branches:
       - main
       - feature/ai-admin-client-dashboards
       - fix/cron-summary-reliability
+      - release/all-features
 
 permissions:
   contents: read
