@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentAIUserContext } from "@/lib/ai/auth-context";
 import {
   completeAI,
   BARGAIN_SYSTEM_PROMPT,
@@ -35,15 +35,22 @@ export async function POST(request: Request) {
   let conversationId: string | null = null;
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const authContext = await getCurrentAIUserContext();
 
-    if (authError || !user) {
+    if (authContext.forbidden) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    if (authContext.unavailable) {
+      return NextResponse.json(
+        { error: "ai_storage_unavailable", message: "AI storage is temporarily unavailable." },
+        { status: 503 }
+      );
+    }
+    if (!authContext.user || !authContext.supabase) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
+
+    const { user, supabase } = authContext;
 
     if (!process.env.MAXWEB_AI_API_KEY2) {
       return NextResponse.json(
