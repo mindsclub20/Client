@@ -22,7 +22,7 @@ test("MCP catalog exposes only GitHub and Supabase", () => {
   assert.match(providers, /MCP_PROVIDERS = \["github", "supabase"\]/);
   assert.match(providers, /api\.githubcopilot\.com\/mcp/);
   assert.match(providers, /mcp\.supabase\.com\/mcp/);
-  assert.doesNotMatch(providers, /id:\\s*[\"'](?:gmail|slack|notion|composio)[\"']/i);
+  assert.doesNotMatch(providers, /id:\s*[\"'](?:gmail|slack|notion|composio)[\"']/i);
 });
 
 test("status probes never return token values", () => {
