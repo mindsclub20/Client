@@ -15,10 +15,10 @@ test("unauthenticated Login navigation goes directly to the Authgear hosted flow
 
 test("client dashboard renders a bottom-left default profile avatar and account email", () => {
   assert.match(clientDashboard, /<AccountProfile\s+email=\{userEmail\}/);
-  assert.match(clientDashboard, /import AccountProfile from ["']\.\/account-profile["']/);
+  assert.match(clientDashboard, /import AccountProfile from ["']@\/app\/components\/account-profile["']/);
   assert.match(profile, /position:\s*["']fixed["']/);
   assert.match(profile, /bottom:/);
   assert.match(profile, /Default profile picture/);
   assert.match(profile, /email/);
-  assert.match(adminPage, /<AccountProfile\\s+email=\\{user\\.email/);
+  assert.match(adminPage, /<AccountProfile\s+email=\{user\.email/);
 });
