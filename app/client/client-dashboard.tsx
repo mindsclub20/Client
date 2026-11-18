@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import DashboardShell, { dash } from "@/app/components/dashboard-shell";
+import AccountProfile from "@/app/components/account-profile";
 import InterviewWizard from "./interview-wizard";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -221,7 +222,7 @@ export default function ClientDashboard({
               headers: { "Content-Type": "application/json" },
               body: "{}",
             });
-            window.location.replace("/#login");
+            window.location.replace("/");
           }}
           style={{ ...dash.ghostBtn, padding: "8px 14px", fontSize: 13 }}
         >
@@ -233,7 +234,7 @@ export default function ClientDashboard({
 
   return (
     <DashboardShell topNav={topNav}>
-      <div style={{ padding: "28px 20px 88px" }}>
+      <div style={{ padding: "28px 20px 116px" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
           <section style={{ ...dash.card, marginBottom: 22, padding: "28px 26px" }}>
             <p style={dash.label}>Welcome back</p>
@@ -463,6 +464,7 @@ export default function ClientDashboard({
           </section>
         </div>
       </div>
+      <AccountProfile email={userEmail} name={userName} />
     </DashboardShell>
   );
 }
