@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentAIUserContext } from "@/lib/ai/auth-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,14 +13,17 @@ function isMissingRelation(error: { code?: string; message?: string } | null): b
 
 export async function GET() {
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const authContext = await getCurrentAIUserContext();
+    if (authContext.forbidden) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    if (authContext.unavailable) {
+      return NextResponse.json({ error: "storage_unavailable" }, { status: 503 });
+    }
+    if (!authContext.user || !authContext.supabase) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
+    const { user, supabase } = authContext;
 
     const { data: quote, error } = await supabase
       .from("ai_quotes")
