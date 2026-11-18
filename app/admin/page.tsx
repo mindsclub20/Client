@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
-import { getCurrentAdminContext } from "@/lib/admin-auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createVerifiedAdminDataClient,
+  getCurrentAdminContext,
+} from "@/lib/admin-auth";
 import AdminLogoutButton from "./admin-logout-button";
 import AdminQuoteApprovalButton from "./admin-quote-approval-button";
 import DashboardShell, { dash } from "@/app/components/dashboard-shell";
@@ -14,7 +16,11 @@ const CARD = dash.card;
 
 const SERVICE_LINKS = [
   { name: "GitHub", url: "https://github.com/mindsclub20/Client", desc: "Source code" },
-  { name: "Supabase", url: "https://supabase.com/dashboard/project/lpplrraoanuxlojduswi", desc: "Auth & database" },
+  {
+    name: "Supabase",
+    url: "https://supabase.com/dashboard/project/lpplrraoanuxlojduswi",
+    desc: "Auth & database",
+  },
   { name: "Vercel", url: "https://vercel.com", desc: "Hosting & deploys" },
   { name: "Hostinger", url: "https://hpanel.hostinger.com", desc: "Domain / hosting" },
   { name: "Authgear", url: "https://portal.authgear.com", desc: "Auth (if used)" },
@@ -22,34 +28,58 @@ const SERVICE_LINKS = [
 ];
 
 export default async function AdminPage() {
-  const { user, isAdmin } = await getCurrentAdminContext();
+  const { user, isAdmin, provider } = await getCurrentAdminContext();
 
   if (!user) redirect("/#login");
   if (!isAdmin) redirect("/client");
 
-  const supabase = await createSupabaseServerClient();
-  const { data: conversations } = await supabase
-    .from("ai_conversations")
-    .select("id, status, demo_requested_at")
-    .order("updated_at", { ascending: false })
-    .limit(40);
+  let list: { id: string; status: string; demo_requested_at: string | null }[] = [];
+  let pendingQuotes:
+    | {
+        id: string;
+        conversation_id: string;
+        user_id: string;
+        proposed_price: number;
+        scope_summary: string | null;
+        created_at: string;
+      }[]
+    | null = [];
+  let approvedQuotes: { conversation_id: string; proposed_price: number }[] | null = [];
+  let quoteError: { code?: string } | null = null;
 
-  const { data: pendingQuotes, error: quoteError } = await supabase
-    .from("ai_quotes")
-    .select("id, conversation_id, user_id, proposed_price, scope_summary, created_at")
-    .eq("status", "pending_admin")
-    .order("created_at", { ascending: true })
-    .limit(50);
-  if (quoteError) console.error("pending quote lookup failed", { code: quoteError.code });
+  try {
+    const supabase = await createVerifiedAdminDataClient();
+    const { data: conversations } = await supabase
+      .from("ai_conversations")
+      .select("id, status, demo_requested_at")
+      .order("updated_at", { ascending: false })
+      .limit(40);
+    list = conversations || [];
 
-  const { data: approvedQuotes, error: approvedQuoteError } = await supabase
-    .from("ai_quotes")
-    .select("conversation_id, proposed_price")
-    .eq("status", "approved")
-    .limit(1000);
-  if (approvedQuoteError) console.error("approved quote lookup failed", { code: approvedQuoteError.code });
+    const pending = await supabase
+      .from("ai_quotes")
+      .select("id, conversation_id, user_id, proposed_price, scope_summary, created_at")
+      .eq("status", "pending_admin")
+      .order("created_at", { ascending: true })
+      .limit(50);
+    pendingQuotes = pending.data;
+    quoteError = pending.error;
+    if (pending.error) console.error("pending quote lookup failed", { code: pending.error.code });
 
-  const list = conversations || [];
+    const approved = await supabase
+      .from("ai_quotes")
+      .select("conversation_id, proposed_price")
+      .eq("status", "approved")
+      .limit(1000);
+    approvedQuotes = approved.data;
+    if (approved.error) console.error("approved quote lookup failed", { code: approved.error.code });
+  } catch (error) {
+    console.error(
+      "admin page data client failed",
+      error instanceof Error ? error.message : "unknown error"
+    );
+  }
+
   const approvedPriceByConversation = new Map(
     (approvedQuotes || []).map((quote) => [quote.conversation_id, quote.proposed_price])
   );
@@ -119,7 +149,11 @@ export default async function AdminPage() {
             <p style={{ color: dash.mutedColor, marginTop: 0, fontSize: 13 }}>Signed in</p>
             <h2 style={{ fontSize: 20, margin: "6px 0" }}>{user.email}</h2>
             <p style={{ color: dash.mutedColor, marginBottom: 0, fontSize: 13 }}>
-              Role verified via Supabase app_metadata.
+              Role verified via{" "}
+              {provider === "authgear"
+                ? "Authgear allowlist + verified email"
+                : "Supabase app_metadata"}
+              .
             </p>
           </section>
 
@@ -154,8 +188,7 @@ export default async function AdminPage() {
             <h2 style={{ fontSize: 20, marginBottom: 14 }}>Quotation approval queue</h2>
             {quoteError ? (
               <div style={{ ...CARD, color: "#ffb6a9" }}>
-                Quote queue is unavailable. Apply the quote approval database migration before using
-                this module.
+                Quote queue is unavailable. Check database access and SUPABASE_SERVICE_ROLE_KEY.
               </div>
             ) : !pendingQuotes?.length ? (
               <div style={{ ...CARD, color: dash.mutedColor }}>
