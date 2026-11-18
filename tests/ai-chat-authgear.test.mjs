@@ -6,6 +6,7 @@ import { authgearSubjectToUserId } from "../lib/ai/authgear-user-id.mjs";
 const route = await readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8");
 const context = await readFile(new URL("../lib/ai/auth-context.ts", import.meta.url), "utf8");
 const adminPage = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
+const migration = await readFile(new URL("../supabase/migrations/202611180001_authgear_ai_identity.sql", import.meta.url), "utf8");
 
 test("Authgear subjects map deterministically to valid UUIDs for the UUID user_id column", () => {
   const first = authgearSubjectToUserId("https://issuer.example", "authgear-subject-123");
@@ -15,6 +16,8 @@ test("Authgear subjects map deterministically to valid UUIDs for the UUID user_i
   assert.equal(first, second);
   assert.match(first, /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   assert.notEqual(first, other);
+  assert.match(migration, /drop constraint if exists ai_conversations_user_id_fkey/i);
+  assert.match(migration, /namespaced UUIDv5 for a verified Authgear subject/i);
 });
 
 test("AI chat resolves Authgear and Supabase users through a shared ownership context", () => {
