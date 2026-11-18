@@ -28,8 +28,10 @@ test("quote submission is customer-authenticated and delegated to the ownership-
 
 test("quote status is scoped to the authenticated customer", async () => {
   const route = await readFile(new URL("../app/api/ai/quote/status/route.ts", import.meta.url), "utf8");
-  assert.match(route, /supabase\.auth\.getUser/);
-  assert.match(route, /\.eq\("user_id", user\.id\)/);
+  assert.match(route, /getCurrentAIUserContext/);
+  assert.match(route, /authContext\.forbidden/);
+  assert.match(route, /authContext\.unavailable/);
+  assert.equal((route.match(/\.eq\("user_id", user\.id\)/g) || []).length, 2);
 });
 
 test("admin approval is server-gated and uses the atomic admin RPC", async () => {
