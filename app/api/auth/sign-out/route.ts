@@ -12,11 +12,19 @@ export async function POST(request: NextRequest) {
   try {
     const authgearUser = await getAuthgearSession();
     if (authgearUser) {
+      // Clear any older Supabase session too, so a second identity is not
+      // silently restored by the /api/me fallback after Authgear logout.
+      try {
+        const supabase = await createSupabaseServerClient();
+        await supabase.auth.signOut();
+      } catch {
+        // Authgear logout must still complete if the legacy provider is unavailable.
+      }
       const logoutUrl = new URL(AUTHGEAR_ISSUER + "/oauth2/end_session");
       logoutUrl.searchParams.set("client_id", process.env.AUTHGEAR_CLIENT_ID || "");
       logoutUrl.searchParams.set("post_logout_redirect_uri", process.env.AUTHGEAR_POST_LOGOUT_REDIRECT_URI || new URL("/", request.url).toString());
       const response = NextResponse.json({ ok: true, redirectTo: logoutUrl.toString() }, { status: 200, headers: { "cache-control": "no-store" } });
-      response.cookies.set(AUTHGEAR_SESSION_COOKIE, "", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 0 });
+      response.cookies.set(AUTHGEAR_SESSION_COOKIE, "", { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 0 });
       return response;
     }
 
