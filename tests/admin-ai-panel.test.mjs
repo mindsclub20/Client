@@ -11,6 +11,10 @@ const conversationsPanel = await readFile(
   new URL("../app/admin/ai-conversations-panel.tsx", import.meta.url),
   "utf8"
 );
+const summaryMonitor = await readFile(
+  new URL("../app/admin/ai-summary-monitor.tsx", import.meta.url),
+  "utf8"
+);
 const health = await readFile(new URL("../app/api/ai/health/route.ts", import.meta.url), "utf8");
 
 test("admin page mounts AI status, summary monitor, and conversations panel after admin guard", () => {
@@ -48,4 +52,11 @@ test("AI health endpoint is administrator-only", () => {
   assert.match(health, /getCurrentAdminContext/);
   assert.match(health, /forbidden/);
   assert.match(health, /isAdmin/);
+});
+
+
+test("AI summary monitor independently verifies admin access before service-role reads", () => {
+  assert.match(summaryMonitor, /createVerifiedAdminDataClient/);
+  assert.match(summaryMonitor, /await createVerifiedAdminDataClient\(\)/);
+  assert.doesNotMatch(summaryMonitor, /createSupabaseAdminClient/);
 });
