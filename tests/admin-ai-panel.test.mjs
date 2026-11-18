@@ -37,10 +37,10 @@ test("AI status card keeps the Gemini API key server-side and describes metadata
 
 test("conversations panel renders the complete message transcript without summary placeholders", () => {
   assert.match(conversationsPanel, /messagesByConversation/);
-  assert.match(conversationsPanel, /thread\\.map/);
-  assert.match(conversationsPanel, /m\\.content/);
+  assert.match(conversationsPanel, /thread\.map/);
+  assert.match(conversationsPanel, /m\.content/);
   assert.match(conversationsPanel, /role === "assistant"/);
-  assert.match(conversationsPanel, /role === "user" \\|\\| role === "customer"/);
+  assert.match(conversationsPanel, /role === "user" \|\| role === "customer"/);
   assert.doesNotMatch(conversationsPanel, /Needs summary|Summarized/);
 });
 
