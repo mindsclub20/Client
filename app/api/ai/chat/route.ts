@@ -136,6 +136,7 @@ export async function POST(request: Request) {
         "id, user_id, current_price, minimum_price, website_type, agreed_price, status"
       )
       .eq("id", conversationId)
+      .eq("user_id", user.id)
       .single();
 
     if (convError || !conversation || conversation.user_id !== user.id) {
