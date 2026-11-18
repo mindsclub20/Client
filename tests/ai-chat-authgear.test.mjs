@@ -6,7 +6,7 @@ import { authgearSubjectToUserId } from "../lib/ai/authgear-user-id.mjs";
 const route = await readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8");
 const context = await readFile(new URL("../lib/ai/auth-context.ts", import.meta.url), "utf8");
 const adminPage = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
-const migration = await readFile(new URL("../supabase/migrations/202611180001_authgear_ai_identity.sql", import.meta.url), "utf8");
+const migration = await readFile(new URL("../supabase/migrations/20261118072840_authgear_ai_identity.sql", import.meta.url), "utf8");
 
 test("Authgear subjects map deterministically to valid UUIDs for the UUID user_id column", () => {
   const first = authgearSubjectToUserId("https://issuer.example", "authgear-subject-123");
