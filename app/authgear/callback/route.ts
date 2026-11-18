@@ -28,7 +28,7 @@ function clearFlowCookies(response: NextResponse) {
 
 function fail(request: NextRequest, reason: string) {
   const response = NextResponse.redirect(
-    new URL("/?authgear=" + encodeURIComponent(reason) + "#login", request.url)
+    new URL("/?authgear=" + encodeURIComponent(reason), request.url)
   );
   clearFlowCookies(response);
   return response;
