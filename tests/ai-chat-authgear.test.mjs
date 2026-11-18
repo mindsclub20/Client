@@ -7,6 +7,7 @@ const route = await readFile(new URL("../app/api/ai/chat/route.ts", import.meta.
 const context = await readFile(new URL("../lib/ai/auth-context.ts", import.meta.url), "utf8");
 const adminPage = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
 const migration = await readFile(new URL("../supabase/migrations/20261118072840_authgear_ai_identity.sql", import.meta.url), "utf8");
+const conversationsRoute = await readFile(new URL("../app/api/ai/conversations/route.ts", import.meta.url), "utf8");
 
 test("Authgear subjects map deterministically to valid UUIDs for the UUID user_id column", () => {
   const first = authgearSubjectToUserId("https://issuer.example", "authgear-subject-123");
@@ -37,4 +38,18 @@ test("admin dashboard mounts the AI summary monitor after its admin authorizatio
   assert.ok(authIndex >= 0);
   assert.ok(monitorIndex > authIndex);
   assert.match(adminPage, /import AdminAISummaryMonitor from ".\/ai-summary-monitor"/);
+});
+
+
+test("conversation listing supports verified Authgear and Supabase sessions with owner filtering", () => {
+  assert.match(conversationsRoute, /getAuthgearSession/);
+  assert.match(conversationsRoute, /AUTHGEAR_ISSUER/);
+  assert.match(conversationsRoute, /authgearSubjectToUserId/);
+  assert.match(conversationsRoute, /createSupabaseAdminClient/);
+  assert.match(conversationsRoute, /createSupabaseServerClient/);
+  assert.match(conversationsRoute, /authgearUser\\.role === "admin"/);
+  assert.match(conversationsRoute, /user\\.app_metadata\\?\\.role === "admin"/);
+  const ownerFilter = conversationsRoute.indexOf('.eq("user_id", userId)');
+  const queryExecution = conversationsRoute.indexOf("await query");
+  assert.ok(ownerFilter >= 0 && queryExecution > ownerFilter);
 });
