@@ -8,6 +8,7 @@ const context = await readFile(new URL("../lib/ai/auth-context.ts", import.meta.
 const adminPage = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
 const migration = await readFile(new URL("../supabase/migrations/20261118072840_authgear_ai_identity.sql", import.meta.url), "utf8");
 const conversationsRoute = await readFile(new URL("../app/api/ai/conversations/route.ts", import.meta.url), "utf8");
+const quoteStatusRoute = await readFile(new URL("../app/api/ai/quote/status/route.ts", import.meta.url), "utf8");
 
 test("Authgear subjects map deterministically to valid UUIDs for the UUID user_id column", () => {
   const first = authgearSubjectToUserId("https://issuer.example", "authgear-subject-123");
@@ -52,4 +53,11 @@ test("conversation listing supports verified Authgear and Supabase sessions with
   const ownerFilter = conversationsRoute.indexOf('.eq("user_id", userId)');
   const queryExecution = conversationsRoute.indexOf("await query");
   assert.ok(ownerFilter >= 0 && queryExecution > ownerFilter);
+});
+
+
+test("conversation reads and quote status use owner-scoped resolved identities", () => {
+  assert.match(route, /\\.eq\\("id", conversationId\\)[\\s\\S]*?\\.eq\\("user_id", user\\.id\\)/);
+  assert.match(quoteStatusRoute, /getCurrentAIUserContext/);
+  assert.equal((quoteStatusRoute.match(/\\.eq\\("user_id", user\\.id\\)/g) || []).length, 2);
 });
