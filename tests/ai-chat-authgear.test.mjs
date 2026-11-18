@@ -47,8 +47,8 @@ test("conversation listing supports verified Authgear and Supabase sessions with
   assert.match(conversationsRoute, /authgearSubjectToUserId/);
   assert.match(conversationsRoute, /createSupabaseAdminClient/);
   assert.match(conversationsRoute, /createSupabaseServerClient/);
-  assert.match(conversationsRoute, /authgearUser\\.role === "admin"/);
-  assert.match(conversationsRoute, /user\\.app_metadata\\?\\.role === "admin"/);
+  assert.match(conversationsRoute, /authgearUser\.role === "admin"/);
+  assert.match(conversationsRoute, /user\.app_metadata\?\.role === "admin"/);
   const ownerFilter = conversationsRoute.indexOf('.eq("user_id", userId)');
   const queryExecution = conversationsRoute.indexOf("await query");
   assert.ok(ownerFilter >= 0 && queryExecution > ownerFilter);
