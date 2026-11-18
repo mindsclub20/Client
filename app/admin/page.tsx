@@ -7,6 +7,7 @@ import AdminLogoutButton from "./admin-logout-button";
 import AdminQuoteApprovalButton from "./admin-quote-approval-button";
 import DashboardShell, { dash } from "@/app/components/dashboard-shell";
 import AdminAIStatusCard from "./ai-status-card";
+import AdminAISummaryMonitor from "./ai-summary-monitor";
 import AdminAIConversationsPanel from "./ai-conversations-panel";
 
 export const runtime = "nodejs";
@@ -183,6 +184,8 @@ export default async function AdminPage() {
           </section>
 
           <AdminAIStatusCard />
+
+          <AdminAISummaryMonitor />
 
           <section style={{ marginTop: 28 }}>
             <h2 style={{ fontSize: 20, marginBottom: 14 }}>Quotation approval queue</h2>
