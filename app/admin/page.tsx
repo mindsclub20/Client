@@ -291,7 +291,7 @@ export default async function AdminPage() {
           </section>
         </div>
       </main>
-      <AccountProfile email={user.email || ""} name={user.email || null} />
+      <AccountProfile email={user.email || ""} name={null} />
     </DashboardShell>
   );
 }
