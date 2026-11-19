@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+const homepageContent = await readFile(new URL("../lib/homepage-content.mjs", import.meta.url), "utf8");
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
-test("Shyam is listed as a MAXWEB co-founder", () => {
-  assert.match(page, /B\.V\. Shyam Sundar/);
-  assert.match(page, /Co-founder/);
+test("MAXWEB uses the existing named co-founder in normalized homepage content", () => {
+  assert.match(page, /normalizeFirstCofounderCard\(source\)/);
+  assert.match(homepageContent, /B\.V\. Shyam Sundar/);
+  assert.match(homepageContent, /Co-founder/);
 });
 test("application uses the Next.js App Router", () => {
   assert.equal(packageJson.dependencies.next, "15.5.29");

@@ -6,6 +6,7 @@ on:
       - fix/cron-summary-reliability
       - feature/admin-ai-conversation-monitor
       - fix/maxweb-ai-authgear-admin-monitor
+      - fix/maxweb-joshua-removal
   pull_request:
     branches:
       - main
@@ -13,6 +14,7 @@ on:
       - fix/cron-summary-reliability
       - release/all-features
       - fix/maxweb-ai-authgear-admin-monitor
+      - feature/maxweb-authgear-direct-login-profile
 
 permissions:
   contents: read
