@@ -19,7 +19,7 @@ export default function AdminLogoutButton() {
         body: "{}",
       });
       if (!response.ok) throw new Error("Sign-out request failed");
-      window.location.replace("/#login");
+      window.location.replace("/");
     } catch {
       setBusy(false);
       setError("Could not log out. Please try again.");

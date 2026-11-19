@@ -12,6 +12,7 @@ on:
       - feature/ai-admin-client-dashboards
       - fix/cron-summary-reliability
       - release/all-features
+      - fix/maxweb-ai-authgear-admin-monitor
 
 permissions:
   contents: read

@@ -25,7 +25,7 @@ test("admin status endpoint distinguishes unauthenticated and forbidden users", 
 
 test("admin login and portal navigation route admins to the protected dashboard", async () => {
   const source = await readFile(new URL("../public/js/auth.js", import.meta.url), "utf8");
-  assert.ok(source.includes('user && user.role === "admin"'));
+  assert.ok(source.includes('if (h === "#login" || h === "#portal")'));
   assert.ok(source.includes('window.location.replace("/admin")'));
   assert.ok(source.includes('user.role === "admin" ? "/admin" : "/client"'));
 });
@@ -36,5 +36,5 @@ test("admin dashboard exposes a logout control wired to the server sign-out endp
   const control = await readFile(new URL("../app/admin/admin-logout-button.tsx", import.meta.url), "utf8");
   assert.ok(page.includes("AdminLogoutButton"));
   assert.ok(control.includes('fetch("/api/auth/sign-out"'));
-  assert.ok(control.includes('window.location.replace("/#login")'));
+  assert.ok(control.includes('window.location.replace("/")'));
 });
