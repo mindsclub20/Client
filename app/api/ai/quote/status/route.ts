@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createUserDataClient, getAppUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,14 +13,12 @@ function isMissingRelation(error: { code?: string; message?: string } | null): b
 
 export async function GET() {
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const user = await getAppUser();
+    if (!user) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
+
+    const supabase = await createUserDataClient(user);
 
     const { data: quote, error } = await supabase
       .from("ai_quotes")
@@ -37,13 +35,11 @@ export async function GET() {
       return NextResponse.json({ error: "quote_status_unavailable" }, { status: 503 });
     }
 
-    // If ai_quotes is missing from PostgREST cache (PGRST205), fall back to
-    // conversation-only status instead of hard-failing the client portal.
     let conversation = null;
     if (!quote) {
       const { data: latestConversation, error: conversationError } = await supabase
         .from("ai_conversations")
-        .select("id, current_price, status")
+        .select("id, current_price, status, demo_requested_at")
         .eq("user_id", user.id)
         .eq("status", "active")
         .order("updated_at", { ascending: false })
