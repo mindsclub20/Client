@@ -26,10 +26,11 @@ test("quote submission is customer-authenticated and delegated to the ownership-
   assert.match(route, /status: 401/);
 });
 
-test("quote status is scoped to the authenticated customer", async () => {
+test("quote status uses the resolved session and scopes every read to its owner", async () => {
   const route = await readFile(new URL("../app/api/ai/quote/status/route.ts", import.meta.url), "utf8");
-  assert.match(route, /supabase\.auth\.getUser/);
-  assert.match(route, /\.eq\("user_id", user\.id\)/);
+  assert.match(route, /getAppUser\\(\\)/);
+  assert.match(route, /createUserDataClient\\(user\\)/);
+  assert.equal((route.match(/\\.eq\\("user_id", user\\.id\\)/g) || []).length, 2);
 });
 
 test("admin approval is server-gated and uses the atomic admin RPC", async () => {
@@ -49,11 +50,13 @@ test("quotation schema prevents customer-side approval and restricts approval to
   assert.match(migration, /status in \('pending_admin', 'approved', 'rejected'\)/);
 });
 
-test("client payment actions are rendered only for an approved quote", async () => {
+test("payment details are revealed only after an admin-approved quote", async () => {
   const client = await readFile(new URL("../app/client/client-dashboard.tsx", import.meta.url), "utf8");
-  assert.match(client, /quoteStatus === "approved"/);
-  assert.match(client, /upi:\/\/pay/);
-  assert.match(client, /api\/ai\/quote\/accept/);
+  assert.match(client, /quoteStatus === "approved" && agreedPrice/);
+  assert.match(client, /FAMPAY_UPI/);
+  assert.match(client, /navigator\\.clipboard\\.writeText\\(FAMPAY_UPI\\)/);
+  assert.match(client, /api\\/ai\\/quote\\/accept/);
+  assert.match(client, /Payment unlocks after admin approval/);
 });
 
 test("admin dashboard exposes pending quotes and an approval action", async () => {

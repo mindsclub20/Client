@@ -19,17 +19,20 @@ const page = await readFile(
 const adminPage = await readFile(new URL("../app/admin/page.tsx", import.meta.url), "utf8");
 
 test("MCP catalog exposes only GitHub and Supabase", () => {
-  assert.match(providers, /MCP_PROVIDERS = \["github", "supabase"\]/);
-  assert.match(providers, /api\.githubcopilot\.com\/mcp/);
-  assert.match(providers, /mcp\.supabase\.com\/mcp/);
-  assert.doesNotMatch(providers, /gmail|slack|notion|composio/i);
+  assert.match(providers, /MCP_PROVIDERS = \\["github", "supabase"\\]/);
+  assert.match(providers, /api\\.githubcopilot\\.com\\/mcp/);
+  assert.match(providers, /mcp\\.supabase\\.com\\/mcp/);
+  const providerIds = [...providers.matchAll(/\\bid:\\s*"([^"]+)"/g)].map((match) => match[1]);
+  assert.deepEqual(providerIds, ["github", "supabase"]);
 });
 
 test("status probes never return token values", () => {
   assert.match(status, /server-only/);
-  assert.doesNotMatch(status, /return[\s\S]{0,80}token/);
   assert.match(status, /GITHUB_TOKEN/);
   assert.match(status, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(status, /mode:\\s*"token"/);
+  assert.doesNotMatch(status, /^\\s*(?:token|access_token|refresh_token)\\s*:/m);
+  assert.doesNotMatch(status, /(?:access_token|refresh_token)\\s*:/i);
 });
 
 test("integration APIs are admin-gated and read-only by default", () => {

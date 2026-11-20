@@ -44,7 +44,7 @@ test("scheduled summary cron uses same Gemini key path", () => {
 });
 
 test("client identifies the consultant as Gemini only", () => {
-  assert.match(client, /AI CONSULTANT · GEMINI/);
+  assert.match(client, /Gemini consultant/);
 });
 
 test("failed AI calls do not insert an assistant message", () => {
