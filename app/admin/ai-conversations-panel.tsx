@@ -125,30 +125,34 @@ export default async function AdminAIConversationsPanel({
   if (loadError) {
     return (
       <section style={{ marginTop: 28 }}>
-        <h2 style={{ fontSize: 20, marginBottom: 14 }}>Client chats by account</h2>
+        <h2 style={{ fontSize: 20, marginBottom: 14 }}>Client chats by Gmail</h2>
         <div style={{ ...PANEL, color: "#ffb6a9" }}>{loadError}</div>
       </section>
     );
   }
 
-  const byUser = new Map<string, ConversationRow[]>();
+  // Group primarily by Gmail / contact email so one inbox shows all chats for that address.
+  const byEmail = new Map<string, ConversationRow[]>();
   for (const c of list) {
-    const bucket = byUser.get(c.user_id) || [];
+    const emailKey = (c.contact_email || "").trim().toLowerCase();
+    const groupKey = emailKey || `id:${c.user_id}`;
+    const bucket = byEmail.get(groupKey) || [];
     bucket.push(c);
-    byUser.set(c.user_id, bucket);
+    byEmail.set(groupKey, bucket);
   }
 
-  const accounts: AccountGroup[] = [...byUser.entries()].map(([userId, rows]) => {
+  const accounts: AccountGroup[] = [...byEmail.entries()].map(([groupKey, rows]) => {
     const meta = accountLabel(rows);
+    const email = meta.email || (groupKey.startsWith("id:") ? null : groupKey);
     const latestUpdate = Math.max(...rows.map((r) => new Date(r.updated_at).getTime()));
     const messageCount = rows.reduce(
       (sum, r) => sum + (messagesByConversation.get(r.id)?.length || 0),
       0
     );
     return {
-      userId,
-      label: meta.label,
-      email: meta.email,
+      userId: groupKey,
+      label: email || meta.label,
+      email,
       phone: meta.phone,
       business: meta.business,
       conversations: rows.sort(
@@ -169,9 +173,9 @@ export default async function AdminAIConversationsPanel({
   return (
     <section style={{ marginTop: 28 }}>
       <div>
-        <h2 style={{ fontSize: 20, marginBottom: 6 }}>Client chats by account</h2>
+        <h2 style={{ fontSize: 20, marginBottom: 6 }}>Client chats by Gmail</h2>
         <p style={{ color: "#9fb3cf", fontSize: 13, marginTop: 0 }}>
-          Grouped by customer account. Open an account to see every conversation and the full
+          Grouped by client Gmail / email. Open an address to see every conversation and the full
           transcript — no AI summaries.
         </p>
       </div>
@@ -185,7 +189,7 @@ export default async function AdminAIConversationsPanel({
         }}
       >
         {[
-          { label: "Accounts", value: String(accounts.length) },
+          { label: "Emails", value: String(accounts.length) },
           { label: "Chats", value: String(list.length) },
           { label: "Active chats", value: String(activeCount) },
           { label: "Demo requests", value: String(demoCount) },
@@ -209,9 +213,9 @@ export default async function AdminAIConversationsPanel({
             padding: 28,
           }}
         >
-          <p style={{ margin: "0 0 8px", fontSize: 16, color: "#eaf1fb" }}>No client accounts yet</p>
+          <p style={{ margin: "0 0 8px", fontSize: 16, color: "#eaf1fb" }}>No client emails yet</p>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
-            When clients use <strong>/client</strong>, their chats appear here under their account.
+            When clients use <strong>/client</strong>, their chats appear here under their Gmail.
           </p>
         </div>
       ) : (
@@ -236,14 +240,14 @@ export default async function AdminAIConversationsPanel({
                 }}
               >
                 <div>
-                  <strong style={{ fontSize: 16 }}>{account.label}</strong>
+                  <strong style={{ fontSize: 16 }}>{account.email || account.label}</strong>
                   {account.business ? (
                     <span style={{ marginLeft: 8, color: "#9fb3cf", fontSize: 13 }}>
                       · {account.business}
                     </span>
                   ) : null}
                   <p style={{ color: "#9fb3cf", fontSize: 12, margin: "6px 0 0" }}>
-                    {account.email || "Email not set in intake"}
+                    {account.email ? "Gmail / email account" : "Email not set in intake"}
                     {account.phone ? ` · ${account.phone}` : ""}
                     {" · "}
                     {account.conversations.length} chat
@@ -251,9 +255,11 @@ export default async function AdminAIConversationsPanel({
                     {" · "}
                     {account.messageCount} messages
                   </p>
-                  <p style={{ color: "#6f86a8", fontSize: 11, margin: "4px 0 0" }}>
-                    Account ID: {account.userId}
-                  </p>
+                  {!account.email ? (
+                    <p style={{ color: "#6f86a8", fontSize: 11, margin: "4px 0 0" }}>
+                      Fallback ID: {account.userId}
+                    </p>
+                  ) : null}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                   {account.demoCount > 0 ? (
@@ -369,8 +375,7 @@ export default async function AdminAIConversationsPanel({
 
                       {c.demo_requested_at ? (
                         <p style={{ color: "#d29a68", fontSize: 13, margin: "10px 0 0" }}>
-                          Demo requested{" "}
-                          {new Date(c.demo_requested_at).toLocaleString("en-IN")}
+                          Demo requested {new Date(c.demo_requested_at).toLocaleString("en-IN")}
                         </p>
                       ) : null}
 
