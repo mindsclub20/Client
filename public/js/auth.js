@@ -88,8 +88,8 @@
         a.textContent = user.role === "admin" ? "Admin dashboard" : "My portal";
         a.setAttribute("href", user.role === "admin" ? "/admin" : "/client");
       } else {
-        a.textContent = "Log in";
-        // Direct link to Authgear (not #login intermediate page).
+        a.textContent = "Login with Authgear";
+        a.setAttribute("aria-label", "Login securely with Authgear");
         a.setAttribute("href", AUTHGEAR_START);
       }
     }
