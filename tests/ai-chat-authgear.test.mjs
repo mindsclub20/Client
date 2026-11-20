@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { authgearSubjectToUserId } from "../lib/ai/authgear-user-id.mjs";
+import { createHash } from "node:crypto";
 
 const route = await readFile(new URL("../app/api/ai/chat/route.ts", import.meta.url), "utf8");
 const context = await readFile(new URL("../lib/ai/auth-context.ts", import.meta.url), "utf8");
@@ -20,6 +21,27 @@ test("Authgear subjects map deterministically to valid UUIDs for the UUID user_i
   assert.notEqual(first, other);
   assert.match(migration, /drop constraint if exists ai_conversations_user_id_fkey/i);
   assert.match(migration, /namespaced UUIDv5 for a verified Authgear subject/i);
+});
+
+test("Authgear UUIDs preserve MAXWEB's existing subject-only owner identity", () => {
+  const subject = "authgear-subject-123";
+  const digest = createHash("sha1")
+    .update("maxweb-authgear-v1:")
+    .update(subject)
+    .digest();
+  const bytes = Buffer.from(digest.subarray(0, 16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  const expected = [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join("-");
+
+  assert.equal(authgearSubjectToUserId("https://issuer.example", subject), expected);
 });
 
 test("AI chat resolves Authgear and Supabase users through a shared ownership context", () => {
