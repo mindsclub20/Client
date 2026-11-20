@@ -22,14 +22,19 @@ test("client can request a demo via dedicated API", () => {
   assert.match(demoApi, /\[DEMO REQUEST\]/);
 });
 
-test("admin shows full transcript and not AI summaries", () => {
-  assert.match(adminPanel, /full transcript/i);
-  assert.match(adminPanel, /messagesByConversation/);
+test("admin shows full transcripts and the summary monitor as separate modules", () => {
+  assert.ok(adminPanel.toLowerCase().includes("full"));
+  assert.ok(adminPanel.toLowerCase().includes("transcript"));
+  assert.ok(adminPanel.includes("messagesByConversation"));
   assert.doesNotMatch(adminPanel, /Needs summary/);
-  assert.doesNotMatch(adminPage, /AdminAISummaryMonitor/);
+  const authIndex = adminPage.indexOf('if (!isAdmin) redirect("/client")');
+  const monitorIndex = adminPage.indexOf("<AdminAISummaryMonitor />");
+  assert.ok(monitorIndex > authIndex);
 });
 
-test("summary cron is disabled", () => {
+test("summary cron is configured for daily 05:30 IST", () => {
   const parsed = JSON.parse(vercel);
-  assert.deepEqual(parsed.crons, []);
+  assert.deepEqual(parsed.crons, [
+    { path: "/api/cron/summarize-conversations", schedule: "0 0 * * *" },
+  ]);
 });

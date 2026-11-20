@@ -35,12 +35,14 @@ test("AI status card keeps the Gemini API key server-side and describes metadata
   assert.doesNotMatch(statusCard, /Chat and summaries can run/);
 });
 
-test("conversations panel surfaces last customer and assistant messages plus summary state", () => {
-  assert.match(conversationsPanel, /lastUserMessageById/);
-  assert.match(conversationsPanel, /lastAssistantMessageById/);
-  assert.match(conversationsPanel, /Needs summary/);
-  assert.match(conversationsPanel, /Summarized/);
-  assert.match(conversationsPanel, /Avg current price/);
+test("conversations panel groups clients and renders full chronological transcripts", () => {
+  assert.ok(conversationsPanel.includes("messagesByConversation"));
+  assert.ok(conversationsPanel.toLowerCase().includes("full"));
+  assert.ok(conversationsPanel.toLowerCase().includes("transcript"));
+  assert.ok(conversationsPanel.includes("thread.map((m, index)"));
+  assert.ok(conversationsPanel.includes("m.content"));
+  assert.ok(conversationsPanel.includes("createVerifiedAdminDataClient"));
+  assert.doesNotMatch(conversationsPanel, /Needs summary|Summarized/);
 });
 
 test("AI health endpoint is administrator-only", () => {
