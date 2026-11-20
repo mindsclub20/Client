@@ -28,9 +28,10 @@ test("quote submission is customer-authenticated and delegated to the ownership-
 
 test("quote status uses the resolved session and scopes every read to its owner", async () => {
   const route = await readFile(new URL("../app/api/ai/quote/status/route.ts", import.meta.url), "utf8");
-  assert.match(route, /getAppUser\\(\\)/);
-  assert.match(route, /createUserDataClient\\(user\\)/);
-  assert.equal((route.match(/\\.eq\\("user_id", user\\.id\\)/g) || []).length, 2);
+  assert.ok(route.includes("getAppUser()"));
+  assert.ok(route.includes("createUserDataClient(user)"));
+  const ownerFilter = '.eq("user_id", user.id)';
+  assert.equal(route.split(ownerFilter).length - 1, 2);
 });
 
 test("admin approval is server-gated and uses the atomic admin RPC", async () => {
@@ -52,11 +53,11 @@ test("quotation schema prevents customer-side approval and restricts approval to
 
 test("payment details are revealed only after an admin-approved quote", async () => {
   const client = await readFile(new URL("../app/client/client-dashboard.tsx", import.meta.url), "utf8");
-  assert.match(client, /quoteStatus === "approved" && agreedPrice/);
-  assert.match(client, /FAMPAY_UPI/);
-  assert.match(client, /navigator\\.clipboard\\.writeText\\(FAMPAY_UPI\\)/);
-  assert.match(client, /api\\/ai\\/quote\\/accept/);
-  assert.match(client, /Payment unlocks after admin approval/);
+  assert.ok(client.includes('quoteStatus === "approved" && agreedPrice'));
+  assert.ok(client.includes("FAMPAY_UPI"));
+  assert.ok(client.includes("navigator.clipboard.writeText(FAMPAY_UPI)"));
+  assert.ok(client.includes("/api/ai/quote/accept"));
+  assert.ok(client.includes("Payment unlocks after admin approval."));
 });
 
 test("admin dashboard exposes pending quotes and an approval action", async () => {

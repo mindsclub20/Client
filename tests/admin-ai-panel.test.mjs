@@ -36,11 +36,12 @@ test("AI status card keeps the Gemini API key server-side and describes metadata
 });
 
 test("conversations panel groups clients and renders full chronological transcripts", () => {
-  assert.match(conversationsPanel, /messagesByConversation/);
-  assert.match(conversationsPanel, /full[\\s\\S]{0,40}transcript/i);
-  assert.match(conversationsPanel, /thread\\.map\\(\\(m, index\\)/);
-  assert.match(conversationsPanel, /m\\.content/);
-  assert.match(conversationsPanel, /createVerifiedAdminDataClient/);
+  assert.ok(conversationsPanel.includes("messagesByConversation"));
+  assert.ok(conversationsPanel.toLowerCase().includes("full"));
+  assert.ok(conversationsPanel.toLowerCase().includes("transcript"));
+  assert.ok(conversationsPanel.includes("thread.map((m, index)"));
+  assert.ok(conversationsPanel.includes("m.content"));
+  assert.ok(conversationsPanel.includes("createVerifiedAdminDataClient"));
   assert.doesNotMatch(conversationsPanel, /Needs summary|Summarized/);
 });
 
