@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   completeAI,
   BARGAIN_SYSTEM_PROMPT,
   ProviderError,
   type ChatMessage,
 } from "@/lib/ai/provider";
+import { createUserDataClient, getAppUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,15 +35,15 @@ export async function POST(request: Request) {
   let conversationId: string | null = null;
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const user = await getAppUser();
+    if (!user) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
+    if (user.role === "admin") {
+      return NextResponse.json({ error: "admins_use_admin_panel" }, { status: 403 });
+    }
+
+    const supabase = await createUserDataClient(user);
 
     if (!process.env.MAXWEB_AI_API_KEY2) {
       return NextResponse.json(
@@ -112,6 +112,8 @@ export async function POST(request: Request) {
           starting_price: 15000,
           current_price: 15000,
           minimum_price: 7000,
+          contact_email: user.email,
+          customer_name: user.name,
         })
         .select("id, current_price, minimum_price, website_type, agreed_price, status")
         .single();
@@ -201,6 +203,8 @@ export async function POST(request: Request) {
     const updates: Record<string, unknown> = {
       current_price: currentPrice,
       updated_at: new Date().toISOString(),
+      contact_email: user.email,
+      customer_name: user.name,
     };
 
     const typeHints = [
