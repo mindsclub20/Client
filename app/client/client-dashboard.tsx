@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import DashboardShell, { dash } from "@/app/components/dashboard-shell";
 import InterviewWizard from "./interview-wizard";
 
-type Msg = { role: "user" | "assistant"; content: string };
+type Msg = { role: "user" | "assistant"; content: string; at?: number };
 
 const SUGGESTIONS = [
   "I need a business landing page",
@@ -18,6 +18,18 @@ const WA_PRIMARY = "918106257124";
 const WA_SECONDARY = "918978957342";
 const FAMPAY_UPI = "8978957342@fam";
 
+function avatarKey(email: string) {
+  return `maxweb-avatar:${email.toLowerCase()}`;
+}
+
+function initials(name: string | null, email: string) {
+  if (name?.trim()) {
+    const parts = name.trim().split(/\s+/);
+    return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "MW";
+  }
+  return (email?.[0] || "M").toUpperCase();
+}
+
 function friendlyAiError(data: { error?: string; message?: string } | null): string {
   const code = data?.error || "";
   if (code === "ai_not_configured") return "MAXWEB AI is not configured yet. Contact admin on WhatsApp.";
@@ -26,6 +38,7 @@ function friendlyAiError(data: { error?: string; message?: string } | null): str
   if (code === "provider_timeout" || code === "provider_unavailable" || code === "providers_unavailable") {
     return "The assistant is temporarily unavailable. Try again or use WhatsApp.";
   }
+  if (code === "unauthenticated") return "Session expired. Please log in again.";
   return data?.message || "Something went wrong. Please try again or use WhatsApp.";
 }
 
@@ -41,6 +54,7 @@ export default function ClientDashboard({
       role: "assistant",
       content:
         "Hi! I’m MAXWEB’s consultant. Complete the short intake below (or chat directly). Your full transcript is visible to our team — we do not rely on AI summaries.",
+      at: Date.now(),
     },
   ]);
   const [input, setInput] = useState("");
@@ -59,7 +73,18 @@ export default function ClientDashboard({
   const [demoMessage, setDemoMessage] = useState("");
   const [demoRequested, setDemoRequested] = useState(false);
   const [intakeDone, setIntakeDone] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(avatarKey(userEmail));
+      if (saved) setAvatarUrl(saved);
+    } catch {
+      /* ignore */
+    }
+  }, [userEmail]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -82,18 +107,39 @@ export default function ClientDashboard({
         if (conversation) {
           setConversationId(conversation.id);
           if (typeof conversation.current_price === "number") setCurrentPrice(conversation.current_price);
+          if (conversation.demo_requested_at) setDemoRequested(true);
           setIntakeDone(true);
         }
       })
       .catch(() => undefined);
   }, []);
 
+  function onPickAvatar(file: File | null) {
+    if (!file || !file.type.startsWith("image/")) return;
+    if (file.size > 1_200_000) {
+      setDemoMessage("Please choose an image under 1.2 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = typeof reader.result === "string" ? reader.result : null;
+      if (!dataUrl) return;
+      setAvatarUrl(dataUrl);
+      try {
+        localStorage.setItem(avatarKey(userEmail), dataUrl);
+      } catch {
+        /* storage full */
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function sendText(text: string) {
     const cleaned = text.trim();
     if (!cleaned || busy) return;
     setShowChips(false);
     setInput("");
-    setMessages((m) => [...m, { role: "user", content: cleaned }]);
+    setMessages((m) => [...m, { role: "user", content: cleaned, at: Date.now() }]);
     setBusy(true);
     try {
       const res = await fetch("/api/ai/chat", {
@@ -105,15 +151,18 @@ export default function ClientDashboard({
       const data = await res.json();
       if (data?.conversationId) setConversationId(data.conversationId);
       if (!res.ok) {
-        setMessages((m) => [...m, { role: "assistant", content: friendlyAiError(data) }]);
+        setMessages((m) => [...m, { role: "assistant", content: friendlyAiError(data), at: Date.now() }]);
       } else {
         if (typeof data.currentPrice === "number") setCurrentPrice(data.currentPrice);
-        setMessages((m) => [...m, { role: "assistant", content: data.reply || "…" }]);
+        setMessages((m) => [
+          ...m,
+          { role: "assistant", content: data.reply || "…", at: Date.now() },
+        ]);
       }
     } catch {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "Could not reach the server. Check your connection." },
+        { role: "assistant", content: "Could not reach the server. Check your connection.", at: Date.now() },
       ]);
     } finally {
       setBusy(false);
@@ -136,12 +185,24 @@ export default function ClientDashboard({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setDemoMessage("Could not send the demo request.");
+        setDemoMessage(
+          data.error === "unauthenticated"
+            ? "Please log in again, then request the demo."
+            : "Could not send the demo request. Try again."
+        );
         return;
       }
       if (data.conversationId) setConversationId(data.conversationId);
       setDemoRequested(true);
       setDemoMessage(data.message || "Demo requested. Our team can see your full chat.");
+      setMessages((m) => [
+        ...m,
+        {
+          role: "user",
+          content: "[DEMO REQUEST] Client asked for a live demo.",
+          at: Date.now(),
+        },
+      ]);
     } catch {
       setDemoMessage("Could not reach the server.");
     } finally {
@@ -209,18 +270,23 @@ export default function ClientDashboard({
         <a href="/" style={{ color: dash.text, textDecoration: "none", fontSize: 14 }}>
           Website
         </a>
-        <a href="/#demos" style={{ color: dash.text, textDecoration: "none", fontSize: 14 }}>
+        <a href="/#work" style={{ color: dash.text, textDecoration: "none", fontSize: 14 }}>
           Demos
         </a>
         <button
           type="button"
           onClick={async () => {
-            await fetch("/api/auth/sign-out", {
+            const res = await fetch("/api/auth/sign-out", {
               method: "POST",
               credentials: "same-origin",
               headers: { "Content-Type": "application/json" },
               body: "{}",
             });
+            const data = await res.json().catch(() => ({}));
+            if (data.redirectTo) {
+              window.location.assign(data.redirectTo);
+              return;
+            }
             window.location.replace("/#login");
           }}
           style={{ ...dash.ghostBtn, padding: "8px 14px", fontSize: 13 }}
@@ -235,14 +301,59 @@ export default function ClientDashboard({
     <DashboardShell topNav={topNav}>
       <div style={{ padding: "28px 20px 88px" }}>
         <div style={{ maxWidth: 980, margin: "0 auto" }}>
-          <section style={{ ...dash.card, marginBottom: 22, padding: "28px 26px" }}>
-            <p style={dash.label}>Welcome back</p>
-            <h1 style={dash.h1}>{userName ? `Hello, ${userName}` : "Your MAXWEB space"}</h1>
-            <p style={{ ...dash.muted, margin: "12px 0 0", maxWidth: 560 }}>
-              Multi-language intake + Gemini chat. Full transcript goes to the team — no AI summary
-              reports.
-            </p>
-            <p style={{ color: dash.mutedColor, fontSize: 13, margin: "10px 0 0" }}>{userEmail}</p>
+          <section style={{ ...dash.card, marginBottom: 22, padding: "24px 26px" }}>
+            <div style={{ display: "flex", gap: 18, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                title="Change profile picture"
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: "50%",
+                  border: "2px solid rgba(47,181,174,0.55)",
+                  overflow: "hidden",
+                  padding: 0,
+                  cursor: "pointer",
+                  background: "linear-gradient(145deg,#1b4a86,#0e2d5c)",
+                  color: "#eaf1fb",
+                  fontWeight: 700,
+                  fontSize: 22,
+                  flexShrink: 0,
+                }}
+              >
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={avatarUrl}
+                    alt="Profile"
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  initials(userName, userEmail)
+                )}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                hidden
+                onChange={(e) => onPickAvatar(e.target.files?.[0] || null)}
+              />
+              <div style={{ minWidth: 200, flex: 1 }}>
+                <p style={dash.label}>Your account</p>
+                <h1 style={{ ...dash.h1, fontSize: 28, margin: "6px 0 0" }}>
+                  {userName ? userName : "MAXWEB client"}
+                </h1>
+                <p style={{ color: dash.teal, fontSize: 15, margin: "8px 0 0", fontWeight: 600 }}>
+                  {userEmail}
+                </p>
+                <p style={{ color: dash.mutedColor, fontSize: 13, margin: "8px 0 0" }}>
+                  Tap the photo to change your profile picture. Email comes from your login (Gmail
+                  or other).
+                </p>
+              </div>
+            </div>
           </section>
 
           {!intakeDone ? (
@@ -255,8 +366,8 @@ export default function ClientDashboard({
                 setShowChips(false);
                 setMessages((m) => [
                   ...m,
-                  { role: "user", content: "[STRUCTURED INTAKE submitted]" },
-                  { role: "assistant", content: reply },
+                  { role: "user", content: "[STRUCTURED INTAKE submitted]", at: Date.now() },
+                  { role: "assistant", content: reply, at: Date.now() },
                 ]);
               }}
             />
@@ -294,13 +405,13 @@ export default function ClientDashboard({
 
             <div
               style={{
-                height: 340,
+                height: 380,
                 overflowY: "auto",
                 display: "flex",
                 flexDirection: "column",
-                gap: 12,
+                gap: 14,
                 marginBottom: 14,
-                padding: 12,
+                padding: "14px 12px",
                 borderRadius: 14,
                 background: "rgba(10, 33, 71, 0.45)",
                 border: "1px solid rgba(255,255,255,0.08)",
@@ -311,20 +422,38 @@ export default function ClientDashboard({
                   key={i}
                   style={{
                     alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                    background:
-                      m.role === "user"
-                        ? "linear-gradient(135deg, #1b4a86, #163d70)"
-                        : "rgba(255,255,255,0.04)",
-                    border: m.role === "user" ? "none" : "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                    padding: "11px 14px",
-                    maxWidth: "88%",
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                    whiteSpace: "pre-wrap",
+                    maxWidth: "86%",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 4,
+                    alignItems: m.role === "user" ? "flex-end" : "flex-start",
                   }}
                 >
-                  {m.content}
+                  <span style={{ fontSize: 11, color: dash.mutedColor, letterSpacing: 0.3 }}>
+                    {m.role === "user" ? "You" : "MAXWEB"}
+                    {m.at
+                      ? ` · ${new Date(m.at).toLocaleTimeString("en-IN", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}`
+                      : ""}
+                  </span>
+                  <div
+                    style={{
+                      background:
+                        m.role === "user"
+                          ? "linear-gradient(135deg, #1b4a86, #163d70)"
+                          : "rgba(255,255,255,0.05)",
+                      border: m.role === "user" ? "none" : "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: m.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                      padding: "12px 14px",
+                      fontSize: 14,
+                      lineHeight: 1.55,
+                      whiteSpace: "pre-wrap",
+                    }}
+                  >
+                    {m.content}
+                  </div>
                 </div>
               ))}
               {busy ? (
@@ -424,15 +553,21 @@ export default function ClientDashboard({
             <h2 style={{ fontSize: 20, margin: "6px 0 8px" }}>Approval & payment</h2>
             {quoteStatus === "approved" && agreedPrice ? (
               <>
-                <p style={{ color: dash.teal, fontSize: 14 }}>Approved ₹{agreedPrice.toLocaleString("en-IN")}</p>
-                <button type="button" onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(FAMPAY_UPI);
-                    setCopied(true);
-                  } catch {
-                    setQuoteMessage("Clipboard unavailable");
-                  }
-                }} style={dash.ghostBtn}>
+                <p style={{ color: dash.teal, fontSize: 14 }}>
+                  Approved ₹{agreedPrice.toLocaleString("en-IN")}
+                </p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(FAMPAY_UPI);
+                      setCopied(true);
+                    } catch {
+                      setQuoteMessage("Clipboard unavailable");
+                    }
+                  }}
+                  style={dash.ghostBtn}
+                >
                   {copied ? "Copied UPI" : `Copy ${FAMPAY_UPI}`}
                 </button>
               </>
