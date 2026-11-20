@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createUserDataClient, getAppUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,20 +10,15 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const user = await getAppUser();
+    if (!user) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
-
-    if (user.app_metadata?.role === "admin") {
+    if (user.role === "admin") {
       return NextResponse.json({ error: "admins_use_admin_panel" }, { status: 403 });
     }
 
+    const supabase = await createUserDataClient(user);
     const body = await request.json().catch(() => ({}));
     const conversationId =
       typeof body.conversationId === "string" ? body.conversationId.trim() : "";
@@ -82,6 +77,8 @@ export async function POST(request: Request) {
             starting_price: 15000,
             current_price: 15000,
             minimum_price: 7000,
+            contact_email: user.email,
+            customer_name: user.name,
             demo_requested_at: new Date().toISOString(),
           })
           .select("id")
@@ -103,7 +100,8 @@ export async function POST(request: Request) {
       .update({
         demo_requested_at: now,
         updated_at: now,
-        title: "Demo request",
+        contact_email: user.email,
+        customer_name: user.name,
       })
       .eq("id", targetId)
       .eq("user_id", user.id);
@@ -126,7 +124,6 @@ export async function POST(request: Request) {
 
     if (messageError) {
       console.error("demo request message insert failed", { code: messageError.code });
-      // Flag still set; message is best-effort for transcript.
     }
 
     return NextResponse.json({
