@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { INTERVIEW_STEPS } from "@/lib/consultant/steps";
 import { buildRequirementReport, type Answers } from "@/lib/consultant/types";
 import { isLangCode, type LangCode } from "@/lib/consultant/languages";
 import { completeAI, ProviderError, type ChatMessage } from "@/lib/ai/provider";
+import { createUserDataClient, getAppUser } from "@/lib/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,16 +11,15 @@ export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const user = await getAppUser();
+    if (!user) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
+    if (user.role === "admin") {
+      return NextResponse.json({ error: "admins_use_admin_panel" }, { status: 403 });
+    }
 
+    const supabase = await createUserDataClient(user);
     const body = await request.json().catch(() => ({}));
     const language: LangCode = isLangCode(String(body.language || ""))
       ? (body.language as LangCode)
@@ -47,7 +46,9 @@ export async function POST(request: Request) {
     if (budget === "7000") currentPrice = 7000;
 
     const customerName =
-      typeof answers.customer_name === "string" ? answers.customer_name.trim() : null;
+      typeof answers.customer_name === "string"
+        ? answers.customer_name.trim()
+        : user.name;
     const businessName =
       typeof answers.business_name === "string" ? answers.business_name.trim() : null;
     const phone =
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
         preferred_language: language,
         customer_name: customerName,
         business_name: businessName,
-        contact_email: user.email || null,
+        contact_email: user.email,
         contact_phone: phone,
         answers,
         requirement_report: report,
@@ -118,7 +119,6 @@ export async function POST(request: Request) {
         });
       } catch (err) {
         if (!(err instanceof ProviderError)) throw err;
-        // Keep intake even if AI fails.
       }
     }
 
