@@ -33,3 +33,15 @@ test("MAXWEB follows Skilldrem's PKCE callback flow and preserves legacy client.
   assert.match(legacyCallback, /confirmation=failed/);
   assert.match(legacyCallback, /safeNext/);
 });
+
+
+test("homepage auth script guards homepage-only DOM before binding listeners", async () => {
+  const source = await readFile(new URL("../public/js/auth.js", import.meta.url), "utf8");
+  assert.match(source, /var form = \$\("af"\);\s*if \(!form\) return;/);
+  assert.match(source, /form\.addEventListener\("submit"/);
+});
+
+test("homepage-only scripts are not loaded from the root layout", async () => {
+  const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(layout, /<Script src="\/js\/(?:script|auth)\.js"/);
+});
