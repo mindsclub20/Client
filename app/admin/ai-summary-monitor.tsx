@@ -1,4 +1,4 @@
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createVerifiedAdminDataClient } from "@/lib/admin-auth";
 
 export const runtime = "nodejs";
 
@@ -33,7 +33,7 @@ export default async function AdminAISummaryMonitor() {
   let unavailable = false;
 
   try {
-    const admin = createSupabaseAdminClient();
+    const admin = await createVerifiedAdminDataClient();
     const { data, error } = await admin
       .from("ai_summary_jobs")
       .select("conversation_id, attempts, next_attempt_at, completed_at, last_error, lease_until, updated_at")

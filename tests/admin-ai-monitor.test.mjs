@@ -14,7 +14,9 @@ test("admin dashboard mounts the monitor only after the admin authorization guar
 });
 
 test("admin monitor reads protected summary jobs through the server-only admin client", () => {
-  assert.match(monitor, /createSupabaseAdminClient/);
+  assert.match(monitor, /createVerifiedAdminDataClient/);
+  assert.match(monitor, /await createVerifiedAdminDataClient\\(\\)/);
+  assert.doesNotMatch(monitor, /createSupabaseAdminClient/);
   assert.match(monitor, /\.from\("ai_summary_jobs"\)/);
   assert.match(monitor, /\.from\("ai_conversations"\)/);
   assert.match(monitor, /\.from\("ai_messages"\)/);
