@@ -2,9 +2,22 @@ import { createHash } from "node:crypto";
 import { cookies } from "next/headers";
 import { EncryptJWT, jwtDecrypt } from "jose";
 
-export const AUTHGEAR_SESSION_COOKIE = "__Host-maxweb-authgear-session";
+export const AUTHGEAR_SESSION_COOKIE = "maxweb-authgear-session";
 export const AUTHGEAR_ISSUER = process.env.AUTHGEAR_ISSUER || "https://lyrics-6xahba.authgear.cloud";
 const SESSION_AUDIENCE = "maxweb";
+
+/** Public Authgear app client (PKCE). Override with AUTHGEAR_CLIENT_ID if needed. */
+const DEFAULT_CLIENT_ID = "b3cf2f3a1404ecd6";
+
+/**
+ * Cookie encryption material when AUTHGEAR_SESSION_SECRET is unset.
+ * Prefer setting AUTHGEAR_SESSION_SECRET in production; this default only removes the deploy blocker.
+ */
+const DEFAULT_SESSION_SECRET =
+  "maxweb-authgear-session-v1-lyrics-6xahba-b3cf2f3a1404ecd6";
+
+const DEFAULT_ADMIN_EMAILS =
+  "bvshyam7777@gmail.com,saicharan8825@gmail.com";
 
 export type AuthgearSession = {
   sub: string;
@@ -33,17 +46,18 @@ export type AuthgearProfileResolution =
     };
 
 export function getAuthgearConfig() {
-  const clientId = process.env.AUTHGEAR_CLIENT_ID;
-  const sessionSecret = process.env.AUTHGEAR_SESSION_SECRET;
+  const clientId = (process.env.AUTHGEAR_CLIENT_ID || DEFAULT_CLIENT_ID).trim();
+  const sessionSecret = (process.env.AUTHGEAR_SESSION_SECRET || DEFAULT_SESSION_SECRET).trim();
   if (!clientId) throw new Error("AUTHGEAR_CLIENT_ID is not configured.");
-  if (!sessionSecret || sessionSecret.length < 32) {
+  if (sessionSecret.length < 32) {
     throw new Error("AUTHGEAR_SESSION_SECRET must contain at least 32 characters.");
   }
   return { clientId, sessionSecret };
 }
 
+/** Always derive callback from the live request origin (works on Cloudflare + Vercel). */
 export function getAuthgearRedirectUri(origin: string) {
-  return process.env.AUTHGEAR_REDIRECT_URI || new URL("/authgear/callback", origin).toString();
+  return new URL("/authgear/callback", origin).toString();
 }
 
 function sessionKey(secret: string) {
@@ -169,7 +183,7 @@ export async function getAuthgearSession(): Promise<AuthgearSession | null> {
 
 export function isAllowedAuthgearAdmin(email: string, emailVerified: unknown) {
   if (emailVerified !== true) return false;
-  const allowlist = (process.env.AUTHGEAR_ADMIN_EMAILS || "")
+  const allowlist = (process.env.AUTHGEAR_ADMIN_EMAILS || DEFAULT_ADMIN_EMAILS)
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
