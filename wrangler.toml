@@ -1,0 +1,39 @@
+# MAXWEB — Cloudflare Workers (OpenNext)
+# Docs: https://opennext.js.org/cloudflare
+#
+# IMPORTANT: `name` must match the existing Cloudflare Worker service.
+# Dashboard service is currently: client
+# https://dash.cloudflare.com/.../workers/services/view/client/production
+
+name = "client"
+main = ".open-next/worker.js"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+# Static assets produced by OpenNext
+assets = { directory = ".open-next/assets", binding = "ASSETS" }
+
+# Optional: enable Workers Logs in the dashboard
+# [observability]
+# enabled = true
+
+# ── Secrets (set with: npx wrangler secret put NAME) ─────────────────────────
+# Do NOT put real secrets in this file.
+#
+# Required:
+#   AUTHGEAR_CLIENT_ID
+#   AUTHGEAR_SESSION_SECRET
+#   AUTHGEAR_ADMIN_EMAILS
+#   AUTHGEAR_REDIRECT_URI
+#   AUTHGEAR_POST_LOGOUT_REDIRECT_URI
+#   SUPABASE_URL
+#   SUPABASE_ANON_KEY
+#   SUPABASE_SERVICE_ROLE_KEY
+#   MAXWEB_AI_API_KEY2
+#
+# Optional:
+#   AUTHGEAR_ISSUER
+#   NEXT_PUBLIC_SUPABASE_URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY
+#   MAXWEB_GEMINI_MODEL
+#   CRON_SECRET
