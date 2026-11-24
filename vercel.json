@@ -1,4 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": []
+  "crons": [],
+  "_comment": "Primary deploy target is Cloudflare Workers (see wrangler.toml and npm run cf:deploy). This file is kept only for optional Vercel fallback."
 }
