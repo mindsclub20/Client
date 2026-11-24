@@ -1,8 +1,7 @@
 import Script from "next/script";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import { SITE_SOURCE_HTML } from "@/lib/generated-site-source";
 
-const source = readFileSync(join(process.cwd(), "public", "site-source.html"), "utf8");
+const source = SITE_SOURCE_HTML;
 
 // Replace Joshua co-founder block with B.V. Shyam Sundar only.
 const cofounderSection =
