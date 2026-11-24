@@ -1,7 +1,11 @@
-# MAXWEB — Cloudflare Workers / Pages (OpenNext)
+# MAXWEB — Cloudflare Workers (OpenNext)
 # Docs: https://opennext.js.org/cloudflare
+#
+# IMPORTANT: `name` must match the existing Cloudflare Worker service.
+# Dashboard service is currently: client
+# https://dash.cloudflare.com/.../workers/services/view/client/production
 
-name = "maxweb"
+name = "client"
 main = ".open-next/worker.js"
 compatibility_date = "2025-10-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
@@ -13,25 +17,23 @@ assets = { directory = ".open-next/assets", binding = "ASSETS" }
 # [observability]
 # enabled = true
 
-# ── Secrets (set with: wrangler secret put NAME) ─────────────────────────────
+# ── Secrets (set with: npx wrangler secret put NAME) ─────────────────────────
 # Do NOT put real secrets in this file.
 #
-# Required secrets / vars (same names as Vercel):
+# Required:
 #   AUTHGEAR_CLIENT_ID
 #   AUTHGEAR_SESSION_SECRET
 #   AUTHGEAR_ADMIN_EMAILS
 #   AUTHGEAR_REDIRECT_URI
 #   AUTHGEAR_POST_LOGOUT_REDIRECT_URI
-#   AUTHGEAR_ISSUER                    (optional)
 #   SUPABASE_URL
-#   NEXT_PUBLIC_SUPABASE_URL           (optional alias)
 #   SUPABASE_ANON_KEY
-#   NEXT_PUBLIC_SUPABASE_ANON_KEY      (optional alias)
 #   SUPABASE_SERVICE_ROLE_KEY
 #   MAXWEB_AI_API_KEY2
-#   MAXWEB_GEMINI_MODEL                (optional)
-#   CRON_SECRET                        (optional, if using scheduled summaries)
-
-# Plain (non-secret) vars can go under [vars] after you know the public hostname:
-# [vars]
-# AUTHGEAR_ISSUER = "https://lyrics-6xahba.authgear.cloud"
+#
+# Optional:
+#   AUTHGEAR_ISSUER
+#   NEXT_PUBLIC_SUPABASE_URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY
+#   MAXWEB_GEMINI_MODEL
+#   CRON_SECRET
