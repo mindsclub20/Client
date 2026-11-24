@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "prebuild": "mkdir -p public && unzip -o MAXWEB.zip 'index.html' 'css/*' 'js/script.js' 'images/*' -d public && mv public/index.html public/site-source.html",
+    "dev": "npm run prebuild && next dev",
+    "prebuild": "mkdir -p public && unzip -o MAXWEB.zip 'index.html' 'css/*' 'js/script.js' 'images/*' -d public && mv public/index.html public/site-source.html && node scripts/embed-site-source.mjs",
     "build": "next build",
     "start": "next start",
     "test": "node --test tests/*.test.mjs",
